@@ -2,57 +2,57 @@
   "fb303": {
     "owner": "facebook",
     "repo": "fb303",
-    "rev": "0857cb6c240f455e76e89292e41ac7a61bed414f",
-    "hash": "sha256-zjFSMmr8EyCFdmUCqDWqqqtXN2/tRllssyDA7hvrhd0=",
+    "rev": "97da48abf29cf810baca6a29eb3ad1cc0708558d",
+    "hash": "sha256-07py+9s8LCX9IenLvuX6cTg39f1IcgLnw0Y+rgH6uI8=",
     "date": "2026-09-30"
   },
   "fbthrift": {
     "owner": "facebook",
     "repo": "fbthrift",
-    "rev": "526970ebe60cc3bc4c89f1278fa9e5730d150416",
-    "hash": "sha256-pHk1sXfAmSx4dAeZVwIVvdatFA77D7YfLYGRot8NER0=",
-    "date": "2026-09-30"
+    "rev": "f912d32fdcf7695bf97d712f224616a06846f11b",
+    "hash": "sha256-qznJVIP4TcFtqrCxRBZW23vLzcqMch1Ns5Cu35P3Mh8=",
+    "date": "2026-10-01"
   },
   "folly": {
     "owner": "facebook",
     "repo": "folly",
-    "rev": "972a4292981d3541abb129e92d2aa4bdc9796305",
-    "hash": "sha256-92xIxGcBjSOhDy99OGIgkQ0UlrQ8B0FY1XSXPWSNhOw=",
-    "date": "2026-09-30"
+    "rev": "5eaf7a81c099bbd2868e4ae22fa7668dac908552",
+    "hash": "sha256-nLMWzpsUeoT+GLXaULZZiKcahK57wDat40rjRCiWTcY=",
+    "date": "2026-10-01"
   },
   "mvfst": {
     "owner": "facebook",
     "repo": "mvfst",
-    "rev": "5e8c5c5c7337fec7b01c9361195b407432e44efd",
-    "hash": "sha256-NSvgWQW3Z5n/gx0yHx34aZKzVrNCS2uEznN0tu6z8Fo=",
+    "rev": "a6af712a069214b367c5167e6a45019d71171db9",
+    "hash": "sha256-eU5ctwQmUbf2E/mIgE2weIuz2hqZIIdwTvOfn9BopoY=",
     "date": "2026-09-30"
   },
   "wangle": {
     "owner": "facebook",
     "repo": "wangle",
-    "rev": "b2d4498a42e7418a381c6531e870e219c4968648",
-    "hash": "sha256-5p017ZWUlbjWWMmWOvHH5dkZyj4tgcaAuh1BdgPYC84=",
+    "rev": "7ffe95016007571670a179567e12efbd1be4a74a",
+    "hash": "sha256-fHIsiaIzbUl2i5PjholIeITtwZ6196geU/37ONDGMfA=",
     "date": "2026-09-30"
   },
   "edencommon": {
     "owner": "facebookexperimental",
     "repo": "edencommon",
-    "rev": "6cc6d3caa8df22372fc8482af83b9351cbebcd67",
-    "hash": "sha256-9E0mcPv6tYyY50g19tlvqBAmYFT4e27cVXRxUdEYStU=",
+    "rev": "126062de05d5089f3311d5367d5f8d0c1bfe04b1",
+    "hash": "sha256-9NgjHnQAfq+kf+B4lBtd7wOiMKAZTFZdeBRJBcjYAY8=",
     "date": "2026-09-30"
   },
   "rust-shed": {
     "owner": "facebookexperimental",
     "repo": "rust-shed",
-    "rev": "cf631aa80360e86cda4f296888f6c635a57f72e5",
-    "hash": "sha256-MQ8gXnb+ciXUZxJQ2DnUU2ZjhIJsfodNuqct5f4nzj8=",
-    "date": "2026-09-30"
+    "rev": "9b65fc1abc40cca6f5c1e524bb7457d724f8079f",
+    "hash": "sha256-htv0Ud8FCA7NcWd/3J87VayGZPeq+Bdp/RuB71CwbTo=",
+    "date": "2026-10-01"
   },
   "fizz": {
     "owner": "facebookincubator",
     "repo": "fizz",
-    "rev": "6b9f8a661c0a4d889f58b85b60dd20d75d8f5294",
-    "hash": "sha256-WNn6hCWclUK8uJa8bSiLOwDkXrs0+E7/i9dCrQdg6vo=",
+    "rev": "4c4844dc07e1f38aab345a6d5d793b8415f2c691",
+    "hash": "sha256-oGP8JmwaLpwUpnQg+gAArUfEHHcGVNfPiyyUwnd0Khk=",
     "date": "2026-09-30"
   }
 }

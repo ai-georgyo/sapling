@@ -59,8 +59,11 @@ let
   ];
 
   # folly's CMake files were reformatted/restructured since 2026.07.27, so the
-  # nixpkgs patches no longer apply. The two aarch64 build fixes are still
-  # needed and are re-applied below; the third one only relocated test
+  # nixpkgs patches no longer apply. Of the two aarch64 build fixes, the one
+  # wiring the assembly memcpy/memset into memcpy-impl/memset-impl is still
+  # needed and is re-applied below; the other one (an ASM shared-library rule
+  # for folly/external/aor) is obsolete, since those sources are now object
+  # libraries of the monolithic libfolly. The third patch only relocated test
   # certificates for `folly_test_util`, which nothing here uses.
   folly = bump pkgs.folly "folly" (old: {
     patches = [ ];
@@ -69,15 +72,10 @@ let
       substituteInPlace folly/CMakeLists.txt \
         --replace-fail \
           $'  NAME memcpy-impl\n  SRCS FollyMemcpy.cpp\n)' \
-          $'  NAME memcpy-impl\n  SRCS FollyMemcpy.cpp $<$<BOOL:''${IS_AARCH64_ARCH}>:memcpy_select_aarch64.cpp>\n  DEPS $<$<BOOL:''${IS_AARCH64_ARCH}>:folly_external_aor_memcpy_aarch64>\n)' \
+          $'  NAME memcpy-impl\n  SRCS FollyMemcpy.cpp $<$<BOOL:''${IS_AARCH64_ARCH}>:memcpy_select_aarch64.cpp>\n  DEPS $<$<BOOL:''${IS_AARCH64_ARCH}>:folly_memcpy_aarch64>\n)' \
         --replace-fail \
           $'  NAME memset-impl\n  SRCS FollyMemset.cpp\n)' \
-          $'  NAME memset-impl\n  SRCS FollyMemset.cpp $<$<BOOL:''${IS_AARCH64_ARCH}>:memset_select_aarch64.cpp>\n  DEPS $<$<BOOL:''${IS_AARCH64_ARCH}>:folly_external_aor_memset_aarch64>\n)'
-      # Assemble the aarch64 sources with the C shared-library rule.
-      substituteInPlace folly/external/aor/CMakeLists.txt \
-        --replace-fail \
-          'if (IS_AARCH64_ARCH)' \
-          $'if (IS_AARCH64_ARCH)\n  if (BUILD_SHARED_LIBS)\n    set(CMAKE_ASM_CREATE_SHARED_LIBRARY ''${CMAKE_C_CREATE_SHARED_LIBRARY})\n  endif ()'
+          $'  NAME memset-impl\n  SRCS FollyMemset.cpp $<$<BOOL:''${IS_AARCH64_ARCH}>:memset_select_aarch64.cpp>\n  DEPS $<$<BOOL:''${IS_AARCH64_ARCH}>:folly_memset_aarch64>\n)'
     '';
   });
 

@@ -39,7 +39,7 @@ let
 in
 rustPlatform.buildRustPackage (finalAttrs: {
   pname = "mononoke";
-  version = "0-unstable-2026-09-30";
+  version = "0-unstable-2026-10-01";
 
   inherit src;
 
@@ -58,7 +58,7 @@ rustPlatform.buildRustPackage (finalAttrs: {
       root = ./.;
       fileset = ./Cargo.lock;
     };
-    hash = "sha256-j/SugKB7LwCMSh82FfbbsTHS2bUL6Qqby2jcngdOWNY=";
+    hash = "sha256-0vuvSnhFEHCho7pgC9KwYYy1DtkaQdp0n5BoxCreLX4=";
   };
 
   cargoRoot = "eden/mononoke";

@@ -5,7 +5,7 @@ version = 4
 [[package]]
 name = "abomonable_string"
 version = "0.1.0"
-source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#cf631aa80360e86cda4f296888f6c635a57f72e5"
+source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#9b65fc1abc40cca6f5c1e524bb7457d724f8079f"
 dependencies = [
  "abomonation",
  "bincode 2.0.1",
@@ -594,7 +594,7 @@ dependencies = [
 [[package]]
 name = "async_once_cell"
 version = "0.1.0"
-source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#cf631aa80360e86cda4f296888f6c635a57f72e5"
+source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#9b65fc1abc40cca6f5c1e524bb7457d724f8079f"
 dependencies = [
  "tokio",
 ]
@@ -1554,7 +1554,6 @@ dependencies = [
  "futures_stats",
  "history_manifest",
  "inferred_copy_from",
- "justknobs_ext",
  "manifest",
  "memblob",
  "mercurial_derivation",
@@ -2809,7 +2808,7 @@ checksum = "b654fee34da149f35fa96ba970ca2d342490f7461fbaa99b6588b63595c7fccf"
 [[package]]
 name = "borrowed"
 version = "0.1.0"
-source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#cf631aa80360e86cda4f296888f6c635a57f72e5"
+source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#9b65fc1abc40cca6f5c1e524bb7457d724f8079f"
 
 [[package]]
 name = "borsh"
@@ -2838,7 +2837,7 @@ dependencies = [
 [[package]]
 name = "bounded_traversal"
 version = "0.1.0"
-source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#cf631aa80360e86cda4f296888f6c635a57f72e5"
+source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#9b65fc1abc40cca6f5c1e524bb7457d724f8079f"
 dependencies = [
  "either",
  "futures 0.3.34",
@@ -2912,7 +2911,7 @@ dependencies = [
 [[package]]
 name = "buffered_weighted"
 version = "0.1.0"
-source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#cf631aa80360e86cda4f296888f6c635a57f72e5"
+source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#9b65fc1abc40cca6f5c1e524bb7457d724f8079f"
 dependencies = [
  "futures-util",
  "pin-project",
@@ -3147,7 +3146,7 @@ dependencies = [
 [[package]]
 name = "cached_config"
 version = "0.1.0"
-source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#cf631aa80360e86cda4f296888f6c635a57f72e5"
+source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#9b65fc1abc40cca6f5c1e524bb7457d724f8079f"
 dependencies = [
  "anyhow",
  "bytes",
@@ -3163,7 +3162,7 @@ dependencies = [
 [[package]]
 name = "cachelib"
 version = "0.1.0"
-source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#cf631aa80360e86cda4f296888f6c635a57f72e5"
+source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#9b65fc1abc40cca6f5c1e524bb7457d724f8079f"
 dependencies = [
  "anyhow",
  "bytes",
@@ -5986,7 +5985,7 @@ dependencies = [
 [[package]]
 name = "facet"
 version = "0.1.0"
-source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#cf631aa80360e86cda4f296888f6c635a57f72e5"
+source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#9b65fc1abc40cca6f5c1e524bb7457d724f8079f"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5999,7 +5998,7 @@ dependencies = [
 [[package]]
 name = "facet_proc_macros"
 version = "0.1.0"
-source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#cf631aa80360e86cda4f296888f6c635a57f72e5"
+source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#9b65fc1abc40cca6f5c1e524bb7457d724f8079f"
 dependencies = [
  "proc-macro-crate 3.5.0",
  "proc-macro2",
@@ -6021,7 +6020,7 @@ dependencies = [
 [[package]]
 name = "failure_ext"
 version = "0.1.0"
-source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#cf631aa80360e86cda4f296888f6c635a57f72e5"
+source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#9b65fc1abc40cca6f5c1e524bb7457d724f8079f"
 dependencies = [
  "anyhow",
  "futures 0.1.31",
@@ -6729,7 +6728,7 @@ dependencies = [
 [[package]]
 name = "futures_01_ext"
 version = "0.1.0"
-source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#cf631aa80360e86cda4f296888f6c635a57f72e5"
+source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#9b65fc1abc40cca6f5c1e524bb7457d724f8079f"
 dependencies = [
  "futures 0.1.31",
 ]
@@ -6749,7 +6748,7 @@ dependencies = [
 [[package]]
 name = "futures_lazy_shared"
 version = "0.1.0"
-source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#cf631aa80360e86cda4f296888f6c635a57f72e5"
+source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#9b65fc1abc40cca6f5c1e524bb7457d724f8079f"
 dependencies = [
  "futures 0.3.34",
 ]
@@ -6757,7 +6756,7 @@ dependencies = [
 [[package]]
 name = "futures_retry"
 version = "0.1.0"
-source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#cf631aa80360e86cda4f296888f6c635a57f72e5"
+source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#9b65fc1abc40cca6f5c1e524bb7457d724f8079f"
 dependencies = [
  "pin-project",
  "rand 0.10.3",
@@ -8108,7 +8107,7 @@ dependencies = [
 [[package]]
 name = "hash_memo"
 version = "0.1.0"
-source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#cf631aa80360e86cda4f296888f6c635a57f72e5"
+source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#9b65fc1abc40cca6f5c1e524bb7457d724f8079f"
 
 [[package]]
 name = "hashbrown"
@@ -9640,7 +9639,7 @@ dependencies = [
 [[package]]
 name = "just_knobs_struct"
 version = "0.1.0"
-source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#cf631aa80360e86cda4f296888f6c635a57f72e5"
+source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#9b65fc1abc40cca6f5c1e524bb7457d724f8079f"
 dependencies = [
  "anyhow",
  "codegen_includer_proc_macro",
@@ -9651,13 +9650,14 @@ dependencies = [
  "serde",
  "serde_derive",
  "thiserror 2.0.21",
+ "thrift",
  "thrift_compiler",
 ]
 
 [[package]]
 name = "justknobs"
 version = "0.1.0"
-source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#cf631aa80360e86cda4f296888f6c635a57f72e5"
+source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#9b65fc1abc40cca6f5c1e524bb7457d724f8079f"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -9703,9 +9703,9 @@ dependencies = [
 
 [[package]]
 name = "lazy_static"
-version = "1.5.0"
+version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
+checksum = "20870f649af7073d53e38067b2a84312175d56ea15217e1b15bc83506ec50afb"
 
 [[package]]
 name = "lazycell"
@@ -10011,7 +10011,7 @@ dependencies = [
 [[package]]
 name = "lock_ext"
 version = "0.1.0"
-source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#cf631aa80360e86cda4f296888f6c635a57f72e5"
+source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#9b65fc1abc40cca6f5c1e524bb7457d724f8079f"
 dependencies = [
  "parking_lot",
 ]
@@ -10097,7 +10097,6 @@ dependencies = [
  "futures 0.3.34",
  "futures_watchdog",
  "itertools 0.15.0",
- "justknobs_ext",
  "maplit",
  "memblob",
  "mononoke_macros",
@@ -10412,7 +10411,7 @@ dependencies = [
 [[package]]
 name = "memcache"
 version = "0.1.0"
-source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#cf631aa80360e86cda4f296888f6c635a57f72e5"
+source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#9b65fc1abc40cca6f5c1e524bb7457d724f8079f"
 dependencies = [
  "memcache_common",
 ]
@@ -10420,7 +10419,7 @@ dependencies = [
 [[package]]
 name = "memcache_common"
 version = "0.1.0"
-source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#cf631aa80360e86cda4f296888f6c635a57f72e5"
+source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#9b65fc1abc40cca6f5c1e524bb7457d724f8079f"
 dependencies = [
  "anyhow",
  "bytes",
@@ -12150,7 +12149,7 @@ dependencies = [
 [[package]]
 name = "mysql_client_traits"
 version = "0.1.0"
-source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#cf631aa80360e86cda4f296888f6c635a57f72e5"
+source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#9b65fc1abc40cca6f5c1e524bb7457d724f8079f"
 dependencies = [
  "chrono",
  "mysql_common",
@@ -12201,7 +12200,7 @@ dependencies = [
 [[package]]
 name = "mysql_derive"
 version = "0.1.0"
-source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#cf631aa80360e86cda4f296888f6c635a57f72e5"
+source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#9b65fc1abc40cca6f5c1e524bb7457d724f8079f"
 dependencies = [
  "quote",
  "syn 3.0.6",
@@ -12242,7 +12241,7 @@ checksum = "27b02d87554356db9e9a873add8782d4ea6e3e58ea071a9adb9a2e8ddb884a8b"
 [[package]]
 name = "netstring"
 version = "0.1.0"
-source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#cf631aa80360e86cda4f296888f6c635a57f72e5"
+source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#9b65fc1abc40cca6f5c1e524bb7457d724f8079f"
 dependencies = [
  "anyhow",
  "bytes",
@@ -12922,7 +12921,7 @@ checksum = "384e52fd8fbd4cbe3c317e8216260c21a0f9134de108cea8a4dd4e7e152c472d"
 [[package]]
 name = "panichandler"
 version = "0.1.0"
-source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#cf631aa80360e86cda4f296888f6c635a57f72e5"
+source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#9b65fc1abc40cca6f5c1e524bb7457d724f8079f"
 dependencies = [
  "backtrace",
  "libc",
@@ -13092,9 +13091,9 @@ checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
 
 [[package]]
 name = "pin-utils"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
+checksum = "13bee6c73da26345c729282832b60b0363cf3dd9f4bfd81d8551b7a1c889a113"
 
 [[package]]
 name = "pkg-config"
@@ -13410,9 +13409,9 @@ dependencies = [
 
 [[package]]
 name = "prodash"
-version = "31.0.0"
+version = "31.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "962200e2d7d551451297d9fdce85138374019ada198e30ea9ede38034e27604c"
+checksum = "cf52d87428247c5aa3760ac8e7d8b13ec7b3579b955a8c3f311668b6860acba5"
 dependencies = [
  "parking_lot",
 ]
@@ -15474,7 +15473,7 @@ dependencies = [
 [[package]]
 name = "sampling"
 version = "0.1.0"
-source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#cf631aa80360e86cda4f296888f6c635a57f72e5"
+source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#9b65fc1abc40cca6f5c1e524bb7457d724f8079f"
 dependencies = [
  "rand 0.10.3",
 ]
@@ -16262,7 +16261,7 @@ dependencies = [
 [[package]]
 name = "scuba"
 version = "0.1.0"
-source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#cf631aa80360e86cda4f296888f6c635a57f72e5"
+source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#9b65fc1abc40cca6f5c1e524bb7457d724f8079f"
 dependencies = [
  "scuba_sample",
  "scuba_sample_builder",
@@ -16292,7 +16291,7 @@ dependencies = [
 [[package]]
 name = "scuba_sample"
 version = "0.1.0"
-source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#cf631aa80360e86cda4f296888f6c635a57f72e5"
+source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#9b65fc1abc40cca6f5c1e524bb7457d724f8079f"
 dependencies = [
  "sampling",
  "scuba_sample_derive",
@@ -16304,7 +16303,7 @@ dependencies = [
 [[package]]
 name = "scuba_sample_builder"
 version = "0.1.0"
-source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#cf631aa80360e86cda4f296888f6c635a57f72e5"
+source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#9b65fc1abc40cca6f5c1e524bb7457d724f8079f"
 dependencies = [
  "rand 0.10.3",
  "sampling",
@@ -16315,7 +16314,7 @@ dependencies = [
 [[package]]
 name = "scuba_sample_client"
 version = "0.1.0"
-source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#cf631aa80360e86cda4f296888f6c635a57f72e5"
+source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#9b65fc1abc40cca6f5c1e524bb7457d724f8079f"
 dependencies = [
  "fbinit",
  "scuba_sample",
@@ -16324,7 +16323,7 @@ dependencies = [
 [[package]]
 name = "scuba_sample_derive"
 version = "0.1.0"
-source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#cf631aa80360e86cda4f296888f6c635a57f72e5"
+source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#9b65fc1abc40cca6f5c1e524bb7457d724f8079f"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -16334,7 +16333,7 @@ dependencies = [
 [[package]]
 name = "secure_utils"
 version = "0.1.0"
-source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#cf631aa80360e86cda4f296888f6c635a57f72e5"
+source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#9b65fc1abc40cca6f5c1e524bb7457d724f8079f"
 dependencies = [
  "anyhow",
  "hex",
@@ -16511,7 +16510,7 @@ dependencies = [
 [[package]]
 name = "services"
 version = "0.1.0"
-source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#cf631aa80360e86cda4f296888f6c635a57f72e5"
+source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#9b65fc1abc40cca6f5c1e524bb7457d724f8079f"
 dependencies = [
  "fbinit",
  "services_common",
@@ -16520,7 +16519,7 @@ dependencies = [
 [[package]]
 name = "services_common"
 version = "0.1.0"
-source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#cf631aa80360e86cda4f296888f6c635a57f72e5"
+source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#9b65fc1abc40cca6f5c1e524bb7457d724f8079f"
 dependencies = [
  "cxx",
  "thiserror 2.0.21",
@@ -16948,7 +16947,7 @@ dependencies = [
 [[package]]
 name = "sorted_vector_map"
 version = "0.2.1"
-source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#cf631aa80360e86cda4f296888f6c635a57f72e5"
+source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#9b65fc1abc40cca6f5c1e524bb7457d724f8079f"
 dependencies = [
  "itertools 0.15.0",
  "quickcheck",
@@ -17076,7 +17075,7 @@ dependencies = [
 [[package]]
 name = "sql"
 version = "0.1.0"
-source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#cf631aa80360e86cda4f296888f6c635a57f72e5"
+source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#9b65fc1abc40cca6f5c1e524bb7457d724f8079f"
 dependencies = [
  "anyhow",
  "cloned",
@@ -17120,7 +17119,7 @@ dependencies = [
 [[package]]
 name = "sql_common"
 version = "0.1.0"
-source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#cf631aa80360e86cda4f296888f6c635a57f72e5"
+source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#9b65fc1abc40cca6f5c1e524bb7457d724f8079f"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -17238,7 +17237,7 @@ dependencies = [
 [[package]]
 name = "sql_tests_lib"
 version = "0.1.0"
-source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#cf631aa80360e86cda4f296888f6c635a57f72e5"
+source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#9b65fc1abc40cca6f5c1e524bb7457d724f8079f"
 dependencies = [
  "anyhow",
  "chrono",
@@ -18396,7 +18395,7 @@ dependencies = [
 [[package]]
 name = "time_ext"
 version = "0.1.0"
-source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#cf631aa80360e86cda4f296888f6c635a57f72e5"
+source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#9b65fc1abc40cca6f5c1e524bb7457d724f8079f"
 dependencies = [
  "anyhow",
  "thiserror 2.0.21",
@@ -18770,7 +18769,7 @@ dependencies = [
 [[package]]
 name = "tracing_slog_compat"
 version = "0.1.0"
-source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#cf631aa80360e86cda4f296888f6c635a57f72e5"
+source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#9b65fc1abc40cca6f5c1e524bb7457d724f8079f"
 dependencies = [
  "slog",
  "tracing",
@@ -19477,7 +19476,7 @@ dependencies = [
 [[package]]
 name = "weight_observer"
 version = "0.1.0"
-source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#cf631aa80360e86cda4f296888f6c635a57f72e5"
+source = "git+https://github.com/facebookexperimental/rust-shed.git?branch=main#9b65fc1abc40cca6f5c1e524bb7457d724f8079f"
 
 [[package]]
 name = "which"

@@ -51,7 +51,7 @@ let
 
   # Upstream versions look like "0.2.<date>-<time>+<hash>" (see ci/tag-name.sh);
   # use the base version from SAPLING_VERSION plus the checkout date.
-  version = "${lib.fileContents ../../SAPLING_VERSION}-unstable-2026-09-30";
+  version = "${lib.fileContents ../../SAPLING_VERSION}-unstable-2026-10-01";
 
   fs = lib.fileset;
   root = ../..;
@@ -166,7 +166,7 @@ rustPlatform.buildRustPackage (finalAttrs: {
       root = ./.;
       fileset = ./Cargo.lock;
     };
-    hash = "sha256-AZX27PA2qLgsSL0vO99zIY4ec4k7cZDYA/oiLz6sGko=";
+    hash = "sha256-tsbxgnb0dglV9C6mcyZQneVPJcFqXRUrJfRTPfwR8aM=";
   };
 
   postPatch = ''

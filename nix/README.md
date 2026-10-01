@@ -145,7 +145,7 @@ lock file and append the `[patch]` table, as the derivations do:
    is required: the vendored directory contains the lock file.
 
 4. **Versions.** The version strings hard-code the checkout date
-   (`*-unstable-2026-09-30`) in the three `default.nix` files.
+   (`*-unstable-2026-10-01`) in the three `default.nix` files.
 
 5. **Upstream patches.** The `substituteInPlace --replace-fail` edits and
    `edenfs/oss-build-fixes.patch` fail loudly when upstream changes the code
