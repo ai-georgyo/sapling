@@ -221,8 +221,8 @@ rustPlatform.buildRustPackage (finalAttrs: {
   }
   // lib.optionalAttrs withEdenfs {
     # Rust Thrift code generation for the EdenFS clients; see
-    # ../thrift-rust-compiler.nix.
-    THRIFT = lib.getExe fbStack.thrift-rust-compiler;
+    # ../fb-stack.nix.
+    THRIFT = fbStack.thrift1;
   };
 
   preBuild = ''

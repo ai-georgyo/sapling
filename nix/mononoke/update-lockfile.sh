@@ -10,8 +10,9 @@ set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 repo=$(cd "$here/../.." && pwd)
 out=$(realpath -m "${1:-$here/Cargo.lock}")
-rust_shed_rev=$(grep -oE '[0-9a-f]{40}' \
-  "$repo/build/deps/github_hashes/facebookexperimental/rust-shed-rev.txt")
+# The rust-shed revision the rest of the Meta stack is at (../fb-stack.json).
+rust_shed_rev=$(nix eval --raw --impure --expr \
+  "(builtins.fromJSON (builtins.readFile $repo/nix/fb-stack.json)).rust-shed.rev")
 
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT

@@ -36,9 +36,6 @@ let
     "configerator/structs/scm"
   ];
 
-  # The Thrift compiler must match the in-repo fbthrift Rust runtime; see
-  # ../thrift-rust-compiler.nix.
-  inherit (fbStack) thrift-rust-compiler;
 in
 rustPlatform.buildRustPackage (finalAttrs: {
   pname = "mononoke";
@@ -123,8 +120,8 @@ rustPlatform.buildRustPackage (finalAttrs: {
 
   env = {
     # Rust Thrift code generation (common/rust/shed/thrift_compiler) runs the
-    # fbthrift compiler found here.
-    THRIFT = lib.getExe thrift-rust-compiler;
+    # fbthrift compiler found here; see ../fb-stack.nix.
+    THRIFT = fbStack.thrift1;
     # getdeps builds with this too: some dependencies (smallvec's
     # `specialization` feature, ...) use unstable features.
     RUSTC_BOOTSTRAP = "1";

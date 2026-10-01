@@ -37,6 +37,7 @@
         sapling-smoke = pkgs.sapling.tests.smoke;
         mononoke-smoke = pkgs.mononoke.tests.smoke;
         edenfs-smoke = pkgs.edenfs.tests.smoke;
+        fb-stack = pkgs.callPackage ./nix/fb-stack-check.nix { };
         nix-formatting = pkgs.runCommand "nix-formatting" { nativeBuildInputs = [ pkgs.nixfmt ]; } ''
           nixfmt --check ${./flake.nix} $(find ${./nix} -name '*.nix')
           touch $out
@@ -60,8 +61,8 @@
           ];
 
           commonEnv = {
-            # Rust Thrift code generation (see nix/thrift-rust-compiler.nix).
-            THRIFT = lib.getExe fbStack.thrift-rust-compiler;
+            # Rust Thrift code generation (see nix/fb-stack.nix).
+            THRIFT = fbStack.thrift1;
             # Link against the nixpkgs libraries, like the packages do.
             OPENSSL_NO_VENDOR = "1";
             LIBGIT2_NO_VENDOR = "1";

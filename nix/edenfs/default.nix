@@ -59,7 +59,7 @@ let
     fbthrift
     fb303
     edencommon
-    thrift-rust-compiler
+    thrift1
     ;
 
   version = "0-unstable-2026-09-30";
@@ -258,8 +258,8 @@ stdenv.mkDerivation (finalAttrs: {
     # `curl`'s static-ssl feature would build a vendored OpenSSL.
     export OPENSSL_NO_VENDOR=1
     # Used by the Rust Thrift code generation (thrift_compiler crate); see
-    # thrift-rust-compiler in ../fb-stack.nix.
-    export THRIFT=${lib.getExe thrift-rust-compiler}
+    # ../fb-stack.nix.
+    export THRIFT=${thrift1}
     # Keep panic locations from referencing (and retaining) the vendor dir.
     export RUSTFLAGS="--remap-path-prefix=${cargoDeps}=/build/cargo-vendor-dir"
     export CARGO_NET_OFFLINE=true

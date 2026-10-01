@@ -1,8 +1,9 @@
 # Nix packaging
 
 The flake at the repository root builds three packages from this checkout,
-using nixpkgs for everything it can: compilers, Rust and Python, the libraries
-and the Meta C++ stack.
+using nixpkgs for everything it can: compilers, Rust and Python and the
+libraries. Meta's own libraries (folly, fbthrift, ...) reuse the nixpkgs
+derivations, at the revisions this checkout records for them.
 
 | Output | What it is | Main binaries |
 | --- | --- | --- |
@@ -27,9 +28,9 @@ nix run .#sapling -- version
 nix flake check -L           # all packages and smoke tests
 ```
 
-The builds are large: each Rust workspace has about 1000 crates, and EdenFS
-also builds the C++ stack from `fb-stack.nix`, since that is not in the binary
-cache. Use `--max-jobs`/`--cores` to limit how much of the machine they use.
+The builds are large: each Rust workspace has about 1000 crates, and all
+three packages need the Meta C++ stack from `fb-stack.nix` (for its Thrift
+compiler at least), which is not in the binary cache. Use `--max-jobs`/`--cores` to limit how much of the machine they use.
 
 Each package builds from a `lib.fileset` source that holds only the paths it
 reads. Edits elsewhere in the repository, including Sapling's `.t` tests and
@@ -101,8 +102,10 @@ lock file and append the `[patch]` table, as the derivations do:
 | File | Purpose |
 | --- | --- |
 | `overlay.nix` | Defines the three packages |
-| `fb-stack.nix` | The Meta C++ stack and the Rust Thrift compiler the packages build against (see Pins) |
-| `thrift-rust-compiler.nix` | The fbthrift compiler that generates Rust code |
+| `fb-stack.nix` | The Meta libraries (C++ stack and Thrift compiler) the packages build against (see Pins) |
+| `fb-stack.json` | Their revisions and hashes, mirrored from `build/deps/github_hashes` |
+| `update-fb-stack.sh` | Regenerates `fb-stack.json` |
+| `fb-stack-check.nix` | The `checks.*.fb-stack` consistency check |
 | `src.nix` | Helper that builds a `lib.fileset` source |
 | `<pkg>/default.nix` | The package |
 | `<pkg>/Cargo.lock`, `<pkg>/cargo-patch*.toml` | The lock file and the `[patch]` entries that redirect the Meta git crates to the in-repo copies |
@@ -115,38 +118,36 @@ lock file and append the `[patch]` table, as the derivations do:
 
 ## Updating when the repository moves forward
 
-1. **Lock files.** Run `nix/sapling/update-lockfile.sh`,
+1. **Meta libraries.** Run `nix/update-fb-stack.sh` (needs network). It reads
+   the revisions this checkout records for its getdeps builds
+   (`build/deps/github_hashes/<owner>/<repo>-rev.txt`) and writes them, with
+   their hashes, to `fb-stack.json`. Everything Meta-made follows from that
+   file: the C++ stack, the Thrift compiler and the rust-shed revision the lock
+   files pin. `nix flake check` (the `fb-stack` check) fails while
+   `fb-stack.json` or a `Cargo.lock` is out of sync.
+
+2. **Lock files.** Run `nix/sapling/update-lockfile.sh`,
    `nix/mononoke/update-lockfile.sh` and `nix/edenfs/update-lockfile.sh`. They
    need network access.
 
    Each script copies the subset of the tree its package builds from, applies
    the same manifest edits as the derivation, and runs `cargo generate-lockfile`
    with the flake's pinned cargo. It then pins the rust-shed crates that are
-   not vendored here to the revision in
-   `build/deps/github_hashes/facebookexperimental/rust-shed-rev.txt`. The
-   edenfs script also pins `cxx` to the nixpkgs `cxx-rs` version.
+   not vendored here to the revision in `fb-stack.json`. The edenfs script also
+   pins `cxx` to the nixpkgs `cxx-rs` version.
 
    The scripts warn about `[[patch.unused]]` entries. Delete those from the
    patch files.
 
-2. **Vendor hashes.** After any change to a `Cargo.lock`, set the package's
+3. **Vendor hashes.** After any change to a `Cargo.lock`, set the package's
    `cargoDeps.hash` to `lib.fakeHash` and run
    `nix build .#<pkg>.cargoDeps`. Copy the `got:` hash into the file. This step
    is required: the vendored directory contains the lock file.
 
-3. **Rust Thrift compiler.** Set `rev`/`hash` in `thrift-rust-compiler.nix` to
-   `build/deps/github_hashes/facebook/fbthrift-rev.txt`. Build errors in
-   generated `*_thrift` crates mean this step was skipped.
-
-4. **C++ stack (EdenFS).** If EdenFS needs newer folly/fbthrift/edencommon
-   APIs, bump `release` and the hashes in `fb-stack.nix`. Use the edencommon
-   revision from `build/deps/github_hashes/facebookexperimental/edencommon-rev.txt`.
-   Drop the bump once nixpkgs catches up.
-
-5. **Versions.** The version strings hard-code the checkout date
+4. **Versions.** The version strings hard-code the checkout date
    (`*-unstable-2026-09-30`) in the three `default.nix` files.
 
-6. **Upstream patches.** The `substituteInPlace --replace-fail` edits and
+5. **Upstream patches.** The `substituteInPlace --replace-fail` edits and
    `edenfs/oss-build-fixes.patch` fail loudly when upstream changes the code
    they touch. Rebase them, or drop the ones that are no longer needed.
 
@@ -156,26 +157,25 @@ lock file and append the `[patch]` table, as the derivations do:
   releases Sapling with 3.12, and its rust-cpython 0.7 bindings predate 3.13.
   nixpkgs' own `sapling` also pins 3.12. EdenFS's Python CLI uses the nixpkgs
   default Python.
-- **The Meta C++ stack for EdenFS** (`fb-stack.nix`). folly, fizz, mvfst,
-  wangle, fbthrift and fb303 are bumped from nixpkgs' 2026.07.27.00 to the
-  v2026.09.28.00 release, and edencommon to getdeps' revision `6cc6d3ca`. These
-  libraries are released in lock-step, and EdenFS here uses newer APIs,
-  especially from edencommon. The bump reuses the nixpkgs derivations and
-  affects only these packages, not the rest of nixpkgs. Sapling and Mononoke
-  link none of it.
-- **The Rust Thrift compiler** (`thrift-rust-compiler.nix`). This is fbthrift
-  at getdeps' revision `526970eb`, compiler only, built against nixpkgs' cached
-  folly. Generated Rust code implements traits of the in-repo runtime
-  (`thrift/lib/rust`), and those traits change between fbthrift releases. Code
-  generated by any released fbthrift, nixpkgs' or v2026.09.28.00, fails to
-  compile against it. All three packages use this compiler. C++ and Python
-  code generation in EdenFS uses `fbStack.fbthrift` to match its C++
-  libraries.
+- **All Meta libraries at this checkout's getdeps revisions** (`fb-stack.nix`,
+  `fb-stack.json`). folly, fizz, mvfst, wangle, fbthrift, fb303, edencommon and
+  rust-shed are at the revisions in `build/deps/github_hashes`, the same ones
+  upstream CI builds this checkout against, instead of nixpkgs' 2026.07.27.00.
+  These libraries are developed in lock-step: EdenFS uses APIs newer than
+  any release (especially from edencommon), and the Rust code fbthrift's
+  compiler generates implements traits of the in-repo runtime
+  (`thrift/lib/rust`), which change between releases and is exported from that
+  same fbthrift revision. So a single fbthrift (`fbStack.fbthrift`, compiler
+  `fbStack.thrift1`) generates the C++, Python and Rust Thrift code of all
+  three packages. The nixpkgs derivations are reused with only the source
+  swapped, and the rest of nixpkgs keeps its own versions. The cost is that
+  every package, not just EdenFS, needs the stack built from source (it is not
+  in the binary cache).
 - **Meta git crates.** fbthrift, fb303, watchman and most rust-shed crates come
   from the in-repo copies (`thrift/lib/rust`, `fb303/thrift`, `watchman/rust`,
   `common/rust/shed`) through `[patch."https://github.com/..."]`, as getdeps
   does with `crate.pathmap`. The remaining rust-shed crates are pinned to
-  getdeps' rust-shed revision `cf631aa8`.
+  the rust-shed revision in `fb-stack.json`.
 - **`cxx` 1.0.194 in EdenFS.** nixpkgs' `cxxbridge` (cxx-rs) generates the C++
   side of the bridges and must be the same version as the crate; an
   evaluation-time assertion checks this. Mononoke builds its cxx bridges
