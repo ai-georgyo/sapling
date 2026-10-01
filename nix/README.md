@@ -12,7 +12,8 @@ derivations, at the revisions this checkout records for them.
 | `packages.<system>.edenfs` | The EdenFS daemon, its privilege helper and the CLI, bundled with an EdenFS-enabled `sl` | `edenfs`, `edenfsctl` / `eden`, `libexec/eden/edenfs_privhelper` |
 | `checks.<system>.*` | The three packages, a smoke test for each (`*-smoke`) and `nix-formatting` | |
 | `devShells.<system>.{default,sapling,mononoke,edenfs}` | Build environments, see below | |
-| `overlays.default` | Adds `sapling`, `mononoke` and `edenfs` to a nixpkgs package set | |
+| `legacyPackages.<system>.fbStack` | The Meta libraries the packages build against, as a package scope (see below) | `thrift` (fbthrift) |
+| `overlays.default` | Adds `sapling`, `mononoke`, `edenfs` and `fbStack` to a nixpkgs package set | |
 | `formatter.<system>` | `nixfmt-tree` | |
 
 Systems are `x86_64-linux` and `aarch64-linux`. Only x86_64-linux has been
@@ -61,6 +62,35 @@ The packages take a few overridable arguments:
   feature, like upstream's `build.py --oss` releases. That build no longer
   needs a Thrift compiler, but `sl` then refuses to work in EdenFS checkouts.
 
+### The Meta libraries (`fbStack`)
+
+`fbStack` is a package scope (`lib.makeScope`) with the Meta libraries at
+this checkout's revisions (see Pins): `folly`, `fizz`, `mvfst`, `wangle`,
+`fbthrift`, `fb303` and `edencommon`, the Python bindings `folly-python`,
+`fbthrift-python` and `thrift-python`, and `thrift1`, the path of fbthrift's
+Thrift compiler.
+
+```sh
+nix build .#fbStack.folly
+nix build .#fbStack.fbthrift   # ./result/bin/thrift
+```
+
+Each library is built against the others in the scope, and the three
+packages take theirs from `fbStack`, so `overrideScope` changes all of them:
+
+```nix
+final: prev: {
+  fbStack = prev.fbStack.overrideScope (
+    fbFinal: fbPrev: {
+      folly = fbPrev.folly.overrideAttrs { /* ... */ };
+    }
+  );
+}
+```
+
+Only these packages and the scope use them; the rest of nixpkgs keeps the
+nixpkgs versions of the same libraries.
+
 ### EdenFS at runtime
 
 You need root to mount, or a setuid privhelper. On NixOS, install
@@ -102,7 +132,8 @@ lock file and append the `[patch]` table, as the derivations do:
 | File | Purpose |
 | --- | --- |
 | `overlay.nix` | Defines the three packages |
-| `fb-stack.nix` | The Meta libraries (C++ stack and Thrift compiler) the packages build against (see Pins) |
+| `fb-stack.nix` | The `fbStack` scope: the Meta libraries (C++ stack and Thrift compiler) the packages build against (see Pins) |
+| `fb-stack-python.nix` | thrift-python and folly's Python bindings (in `fbStack`), for the EdenFS Python CLI (`edenfsctl.real`) |
 | `fb-stack.json` | Their revisions and hashes, mirrored from `build/deps/github_hashes` |
 | `update-fb-stack.sh` | Regenerates `fb-stack.json` |
 | `fb-stack-check.nix` | The `checks.*.fb-stack` consistency check |
@@ -112,7 +143,7 @@ lock file and append the `[patch]` table, as the derivations do:
 | `<pkg>/update-lockfile.sh` | Regenerates the lock file |
 | `<pkg>/smoke-test.sh` | The `passthru.tests.smoke` / `checks.*-smoke` script |
 | `edenfs/oss-build-fixes.patch` | Fixes for the bit-rotted open source CMake/Cargo build of EdenFS (see its header) |
-| `edenfs/python-runtime.nix`, `edenfs/python-deps.cmake` | thrift-python and folly's Python bindings for the Python CLI (`edenfsctl.real`) |
+| `edenfs/python-deps.cmake` | The thrift-python modules the EdenFS Python CLI generates |
 | `edenfs/upstream-patches.toml` | The subset of upstream's eden/fs `[patch]` table that the dependency graph uses |
 | `mononoke/strip-unused-patches.py` | Removes `[patch]` entries that the Mononoke lock does not use |
 

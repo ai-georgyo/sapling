@@ -24,12 +24,19 @@
       forAllSystems = f: lib.genAttrs systems (system: f pkgsFor.${system});
     in
     {
-      # Adds `sapling`, `mononoke` and `edenfs` to a nixpkgs package set.
+      # Adds `sapling`, `mononoke`, `edenfs` and the `fbStack` scope to a
+      # nixpkgs package set.
       overlays.default = import ./nix/overlay.nix;
 
       packages = forAllSystems (pkgs: {
         inherit (pkgs) sapling mononoke edenfs;
         default = pkgs.sapling;
+      });
+
+      # The Meta libraries the packages are built with, as a package scope
+      # (nix/fb-stack.nix): e.g. `nix build .#fbStack.folly`.
+      legacyPackages = forAllSystems (pkgs: {
+        inherit (pkgs) fbStack;
       });
 
       checks = forAllSystems (pkgs: {
@@ -50,7 +57,7 @@
       devShells = forAllSystems (
         pkgs:
         let
-          inherit (pkgs.edenfs) fbStack;
+          inherit (pkgs) fbStack;
 
           # Rust tooling shared by all shells (cargo and rustc come from the
           # packages' build inputs).

@@ -3,8 +3,9 @@
 # The Python CLI uses thrift-python (`thrift.python.*`, Cython extensions on
 # top of the C++ Thrift runtime) and folly's Python bindings (`folly.iobuf`).
 # nixpkgs builds neither, so build them here from the same folly/fbthrift
-# releases as the rest of the stack (see ../fb-stack.nix), as separate
-# derivations so that the EdenFS daemon itself does not depend on Python.
+# as the rest of the stack (this is part of the fb-stack.nix scope), as
+# separate derivations so that the EdenFS daemon itself does not depend on
+# Python.
 {
   lib,
   python3,
@@ -19,7 +20,8 @@
   libunwind,
   snappy,
   xz,
-  fbStack,
+  folly,
+  fbthrift,
 }:
 
 let
@@ -44,10 +46,10 @@ let
   # Python package goes to `dev`, next to the headers and .pxd files that
   # thrift-python's build looks for relative to folly's CMake package.
   # This is a second build of the same folly sources and configuration as
-  # fbStack.folly (plus the Python parts, which live in libfolly_python_cpp
-  # and `dev`), so its libfolly is interchangeable with fbStack.folly's (both
+  # `folly` (plus the Python parts, which live in libfolly_python_cpp and
+  # `dev`), so its libfolly is interchangeable with `folly`'s (both
   # get loaded into the Python CLI, through thrift-python and fizz/wangle).
-  folly-python = fbStack.folly.overrideAttrs (old: {
+  folly-python = folly.overrideAttrs (old: {
     pname = "folly-python";
     nativeBuildInputs = old.nativeBuildInputs ++ [
       pythonForBuild
@@ -96,7 +98,7 @@ let
     set(Libevent_FOUND TRUE)
   '';
 
-  fbthrift-python = (fbStack.fbthrift.override { folly = folly-python; }).overrideAttrs (old: {
+  fbthrift-python = (fbthrift.override { folly = folly-python; }).overrideAttrs (old: {
     pname = "fbthrift-python";
     # `python` holds the thrift-python package (which also bundles folly's
     # Python bindings): thrift.python, thrift.py3, apache.thrift.metadata, folly.

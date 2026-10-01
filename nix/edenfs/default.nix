@@ -5,7 +5,6 @@
 {
   lib,
   stdenv,
-  callPackage,
   rustPlatform,
   cmake,
   ninja,
@@ -64,8 +63,6 @@ let
 
   version = "0-unstable-2026-10-01";
 
-  pythonRuntime = callPackage ./python-runtime.nix { inherit fbStack; };
-
   # All Rust code is built from the eden/fs Cargo workspace (see
   # eden/fs/rust/oss-rust-ffi in oss-build-fixes.patch), which also pulls in
   # the eden/scm crates it needs. Upstream strips Cargo.lock files, so ours
@@ -101,7 +98,7 @@ let
     ps.filelock
     ps.psutil
     ps.toml
-    pythonRuntime.thrift-python
+    fbStack.thrift-python
   ]);
 in
 assert lib.assertMsg (cxx-rs.version == cxxVersion)
@@ -318,7 +315,6 @@ stdenv.mkDerivation (finalAttrs: {
     inherit
       cargoDeps
       pythonEnv
-      pythonRuntime
       fbStack
       ;
     # The `sl` EdenFS checkouts are used with (see saplingForEden).

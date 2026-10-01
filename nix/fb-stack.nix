@@ -18,11 +18,22 @@
 # nixpkgs ships the 2026.07.27.00 release of the C++ stack, which is too old
 # for this checkout (EdenFS uses newer APIs, and the Rust code generator has
 # to match the in-repo runtime). The nixpkgs derivations are reused, only
-# swapping versions and sources. The returned packages are only used by the
-# packages in this repository; the rest of nixpkgs keeps its own versions.
-{ pkgs }:
+# swapping versions and sources.
+#
+# The result is a package scope (`fbStack` in the overlay, and
+# `legacyPackages.<system>.fbStack` in the flake). Its packages only replace
+# the nixpkgs ones for each other and for the packages in this repository;
+# the rest of nixpkgs keeps its own versions. Each library is built against
+# its siblings in the scope, so `fbStack.overrideScope` applies to everything
+# downstream, e.g. replacing `folly` also rebuilds fizz ... edencommon and
+# the packages of this repository.
+{
+  lib,
+  pkgs,
+  newScope,
+  fetchFromGitHub,
+}:
 let
-  inherit (pkgs) lib fetchFromGitHub;
 
   revs = lib.importJSON ./fb-stack.json;
 
@@ -58,6 +69,8 @@ let
     pkgs.zstd
   ];
 
+in
+lib.makeScope newScope (self: {
   # folly's CMake files were reformatted/restructured since 2026.07.27, so the
   # nixpkgs patches no longer apply. Of the two aarch64 build fixes, the one
   # wiring the assembly memcpy/memset into memcpy-impl/memset-impl is still
@@ -79,16 +92,16 @@ let
     '';
   });
 
-  fizz = bump (pkgs.fizz.override { inherit folly; }) "fizz" (old: { });
+  fizz = bump (pkgs.fizz.override { inherit (self) folly; }) "fizz" (old: { });
 
-  mvfst = bump (pkgs.mvfst.override { inherit folly fizz; }) "mvfst" (old: { });
+  mvfst = bump (pkgs.mvfst.override { inherit (self) folly fizz; }) "mvfst" (old: { });
 
-  wangle = bump (pkgs.wangle.override { inherit folly fizz; }) "wangle" (old: { });
+  wangle = bump (pkgs.wangle.override { inherit (self) folly fizz; }) "wangle" (old: { });
 
   fbthrift =
     bump
       (pkgs.fbthrift.override {
-        inherit
+        inherit (self)
           folly
           fizz
           wangle
@@ -130,7 +143,7 @@ let
   fb303 =
     bump
       (pkgs.fb303.override {
-        inherit
+        inherit (self)
           folly
           fizz
           wangle
@@ -145,7 +158,7 @@ let
   edencommon =
     bump
       (pkgs.edencommon.override {
-        inherit
+        inherit (self)
           folly
           wangle
           fbthrift
@@ -158,17 +171,12 @@ let
       });
 
   # The Thrift compiler (C++, Python and Rust code generation).
-  thrift1 = lib.getExe' fbthrift "thrift";
-in
-{
-  inherit
-    thrift1
-    folly
-    fizz
-    mvfst
-    wangle
-    fbthrift
-    fb303
-    edencommon
+  thrift1 = lib.getExe' self.fbthrift "thrift";
+
+  # folly's Python bindings and the thrift-python runtime, for the EdenFS CLI.
+  inherit (self.callPackage ./fb-stack-python.nix { })
+    folly-python
+    fbthrift-python
+    thrift-python
     ;
-}
+})
