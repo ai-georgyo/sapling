@@ -1,0 +1,1362 @@
+Open source build fixes for EdenFS (applied by nix/edenfs/default.nix).
+
+Upstream's CMake/Cargo build of EdenFS (build/fbcode_builder/manifests/eden)
+has bit-rotted against the current sources; this patch makes it build and run:
+
+* CMake: sources that became header-only (InodeNumber, PrettyPrinters), the
+  eden/fs/store/hg -> sl rename, missing targets (privhelper/priority,
+  inodes/fscatalog_dev, sigbus_memops, InodeCatalog split out to break a
+  dependency cycle), liburing linkage, cxx bridges for redirect_ffi and
+  backtrace_ffi (plus -Wl,--wrap=__cxa_throw for ThrowTraceCapture).
+* Rust: all Rust code linked into edenfs is built as one staticlib
+  (eden/fs/rust/oss-rust-ffi) to avoid duplicate std/cxx symbols; open
+  source stand-ins for Meta-internal crates (edenfs-telemetry, the
+  "thriftclients" Thrift flavour) and code paths (iobuf, cpe/remote configs,
+  lmdb bench, Manifold upload, fbinit); backingstore needs repo's "wdir".
+* Python CLI: generated with thrift-python (as the CLI imports
+  `*.thrift_types`) instead of the deprecated "py" generator; zipapp mtimes.
+* C++ fixes for GCC 16 / fmt 12 (ambiguous not_null conversion, formatting
+  std::atomic and a thrift enum).
+
+diff --git a/build/fbcode_builder/CMake/FBThriftPythonLibrary.cmake b/build/fbcode_builder/CMake/FBThriftPythonLibrary.cmake
+index f2fa82a..880c5bb 100644
+--- a/build/fbcode_builder/CMake/FBThriftPythonLibrary.cmake
++++ b/build/fbcode_builder/CMake/FBThriftPythonLibrary.cmake
+@@ -172,6 +172,7 @@ function(add_fbthrift_python_library LIB_NAME THRIFT_FILE)
+     "${py_output_dir}/thrift_metadata.py"
+     "${py_output_dir}/thrift_abstract_types.py"
+     "${py_output_dir}/thrift_mutable_types.py"
++    "${py_output_dir}/thrift_reflection.py"
+   )
+   foreach(service IN LISTS ARG_SERVICES)
+     list(APPEND generated_sources
+@@ -179,6 +180,7 @@ function(add_fbthrift_python_library LIB_NAME THRIFT_FILE)
+       "${py_output_dir}/thrift_mutable_clients.py"
+       "${py_output_dir}/thrift_services.py"
+       "${py_output_dir}/thrift_mutable_services.py"
++      "${py_output_dir}/thrift_services_reflection.py"
+     )
+     break()  # Service files are per-module, not per-service
+   endforeach()
+diff --git a/build/fbcode_builder/CMake/RustStaticLibrary.cmake b/build/fbcode_builder/CMake/RustStaticLibrary.cmake
+index 04f9466..6472da9 100644
+--- a/build/fbcode_builder/CMake/RustStaticLibrary.cmake
++++ b/build/fbcode_builder/CMake/RustStaticLibrary.cmake
+@@ -105,13 +105,18 @@ set_property(GLOBAL APPEND PROPERTY JOB_POOLS rust_job_pool=1)
+ # headers with the interface library.
+ #
+ function(rust_static_library TARGET)
+-  fb_cmake_parse_args(ARG "USE_CXX_INCLUDE" "CRATE;FEATURES" "" "${ARGN}")
++  fb_cmake_parse_args(ARG "USE_CXX_INCLUDE" "CRATE;PACKAGE;FEATURES" "" "${ARGN}")
+ 
+   if(DEFINED ARG_CRATE)
+     set(crate_name "${ARG_CRATE}")
+   else()
+     set(crate_name "${TARGET}")
+   endif()
++  if(DEFINED ARG_PACKAGE)
++    set(package_name "${ARG_PACKAGE}")
++  else()
++    set(package_name "${crate_name}")
++  endif()
+   if(DEFINED ARG_FEATURES)
+     set(features --features ${ARG_FEATURES})
+   else()
+@@ -124,9 +129,9 @@ function(rust_static_library TARGET)
+   set(rust_staticlib "${CMAKE_CURRENT_BINARY_DIR}/${target_dir}/${staticlib_name}")
+ 
+   if(DEFINED ARG_FEATURES)
+-    set(cargo_flags build $<IF:$<CONFIG:Debug>,,--release> -p ${crate_name} --features ${ARG_FEATURES} --config fbcode_build=false)
++    set(cargo_flags build $<IF:$<CONFIG:Debug>,,--release> -p ${package_name} --features ${ARG_FEATURES} --config fbcode_build=false)
+   else()
+-    set(cargo_flags build $<IF:$<CONFIG:Debug>,,--release> -p ${crate_name} --config fbcode_build=false)
++    set(cargo_flags build $<IF:$<CONFIG:Debug>,,--release> -p ${package_name} --config fbcode_build=false)
+   endif()
+   if(USE_CARGO_VENDOR)
+     set(extra_cargo_env "CARGO_HOME=${RUST_CARGO_HOME}")
+@@ -135,8 +140,6 @@ function(rust_static_library TARGET)
+ 
+   add_custom_target(
+     ${cargo_target}
+-    COMMAND
+-      "${CMAKE_COMMAND}" -E remove -f "${CMAKE_CURRENT_SOURCE_DIR}/Cargo.lock"
+     COMMAND
+       "${CMAKE_COMMAND}" -E env
+       "CARGO_TARGET_DIR=${CMAKE_CURRENT_BINARY_DIR}"
+@@ -215,8 +218,6 @@ function(rust_executable TARGET)
+   add_custom_target(
+     ${cargo_target}
+     ALL
+-    COMMAND
+-      "${CMAKE_COMMAND}" -E remove -f "${CMAKE_CURRENT_SOURCE_DIR}/Cargo.lock"
+     COMMAND
+       "${CMAKE_COMMAND}" -E env
+       "CARGO_TARGET_DIR=${CMAKE_CURRENT_BINARY_DIR}"
+@@ -390,6 +391,11 @@ function(rust_cxx_bridge TARGET CXX_BRIDGE_FILE)
+     set(extra_cargo_env "CARGO_HOME=${RUST_CARGO_HOME}")
+   endif()
+ 
++  if(DEFINED RUST_CXX_VERSION)
++    # Known up front (e.g. pinned in the Cargo.lock): skip probing Cargo.
++    set(cxx_version_result 0)
++    set(cxx_version_output "cxx v${RUST_CXX_VERSION}")
++  else()
+   execute_process(
+     COMMAND
+       "${CMAKE_COMMAND}" -E env
+@@ -399,6 +405,7 @@ function(rust_cxx_bridge TARGET CXX_BRIDGE_FILE)
+     RESULT_VARIABLE cxx_version_result
+     OUTPUT_VARIABLE cxx_version_output
+   )
++  endif()
+ 
+   if(NOT "${cxx_version_result}" EQUAL "0")
+     message(FATAL_ERROR "Crate ${crate_name} does not depend on cxx.")
+diff --git a/build/fbcode_builder/CMake/make_fbpy_archive.py b/build/fbcode_builder/CMake/make_fbpy_archive.py
+index 70d3c42..21b7286 100755
+--- a/build/fbcode_builder/CMake/make_fbpy_archive.py
++++ b/build/fbcode_builder/CMake/make_fbpy_archive.py
+@@ -167,6 +167,14 @@ def build_zipapp(args, path_map):
+         inst_dir = os.path.join(tmpdir, "tree")
+         populate_install_tree(inst_dir, path_map)
+ 
++        # ZIP cannot represent timestamps before 1980 (sources may come from a
++        # read-only store with epoch mtimes); also keeps the archive
++        # reproducible.
++        mtime = max(int(os.environ.get("SOURCE_DATE_EPOCH", "0")), 315619200)
++        for root, dirs, files in os.walk(inst_dir):
++            for name in dirs + files:
++                os.utime(os.path.join(root, name), (mtime, mtime))
++
+         tmp_output = os.path.join(tmpdir, "output.exe")
+         zipapp.create_archive(
+             inst_dir, target=tmp_output, interpreter=args.python, main=args.main
+diff --git a/eden/fs/CMakeLists.txt b/eden/fs/CMakeLists.txt
+index f15256f..f12e0c2 100644
+--- a/eden/fs/CMakeLists.txt
++++ b/eden/fs/CMakeLists.txt
+@@ -64,6 +64,9 @@ add_subdirectory(nfs)
+ add_subdirectory(notifications)
+ add_subdirectory(prjfs)
+ add_subdirectory(py)
++add_subdirectory(rust/backtrace_ffi)
++add_subdirectory(rust/oss-rust-ffi)
++add_subdirectory(rust/redirect_ffi)
+ add_subdirectory(service)
+ add_subdirectory(sqlite)
+ add_subdirectory(store)
+diff --git a/eden/fs/Cargo.toml b/eden/fs/Cargo.toml
+index f459ed5..19872e8 100644
+--- a/eden/fs/Cargo.toml
++++ b/eden/fs/Cargo.toml
+@@ -154,6 +154,9 @@ members = [
+   "cli_rs/edenfs-error",
+   "cli_rs/edenfs-saved-state",
+   "cli_rs/edenfs-utils",
++  "cli_rs/oss-edenfs-telemetry",
++  "cli_rs/oss-thrift-streaming-thriftclients",
++  "cli_rs/oss-thriftclients",
+   "cli_rs/edenfsctl",
+   "cli_rs/sapling-client",
+   "cli_rs/stack-config",
+@@ -170,6 +173,7 @@ members = [
+   "rust/edenfs-asserted-states",
+   "rust/edenfs-asserted-states-client",
+   "rust/manifold_ffi",
++  "rust/oss-rust-ffi",
+   "rust/redirect_ffi",
+   "service",
+   "service/clients",
+diff --git a/eden/fs/cli/CMakeLists.txt b/eden/fs/cli/CMakeLists.txt
+index e371ff9..ba797c4 100644
+--- a/eden/fs/cli/CMakeLists.txt
++++ b/eden/fs/cli/CMakeLists.txt
+@@ -17,10 +17,9 @@ add_fb_python_executable(
+   SOURCES ${EDENFSCTL_SRCS}
+   DEPENDS
+     eden_py
+-    eden_overlay_thrift_py
++    eden_overlay_thrift_python
+     eden_scm_redact
+-    eden_service_thrift_py
+-    FBThrift::thrift_py_inspect
++    eden_service_thrift_python
+     python-toml::python-toml
+     python-filelock::python-filelock
+ )
+diff --git a/eden/fs/cli_rs/edenfs-client/Cargo.toml b/eden/fs/cli_rs/edenfs-client/Cargo.toml
+index 1b10eff..4dfb390 100644
+--- a/eden/fs/cli_rs/edenfs-client/Cargo.toml
++++ b/eden/fs/cli_rs/edenfs-client/Cargo.toml
+@@ -44,6 +44,9 @@ toml = { version = "1.1.6", features = ["preserve_order"] }
+ tracing = { version = "0.1.41", features = ["attributes", "valuable"] }
+ uuid = { version = "1.26.1", features = ["rng-getrandom", "serde", "v4", "v5", "v6", "v7", "v8"] }
+ whoami = "2.1.3"
++thrift_streaming_thriftclients = { package = "oss-thrift-streaming-thriftclients", version = "0.1.0", path = "../oss-thrift-streaming-thriftclients" }
++thrift_thriftclients = { package = "oss-thriftclients", version = "0.1.0", path = "../oss-thriftclients" }
++edenfs_telemetry = { package = "oss-edenfs-telemetry", version = "0.1.0", path = "../oss-edenfs-telemetry" }
+ 
+ [dev-dependencies]
+ fb303_core_clients = { version = "0.0.0", path = "../../../../fb303/thrift/rust/clients", git = "https://github.com/facebook/fb303.git", branch = "main" }
+diff --git a/eden/fs/cli_rs/edenfs-client/src/instance.rs b/eden/fs/cli_rs/edenfs-client/src/instance.rs
+index ac8c627..3fa3a50 100644
+--- a/eden/fs/cli_rs/edenfs-client/src/instance.rs
++++ b/eden/fs/cli_rs/edenfs-client/src/instance.rs
+@@ -103,6 +103,7 @@ use edenfs_error::EdenFsError;
+ use edenfs_error::Result;
+ use edenfs_error::ResultExt;
+ use edenfs_utils::get_executable;
++#[cfg(fbcode_build)]
+ use fbinit::expect_init;
+ use hg_util::lock::PathLock;
+ use tracing::Level;
+@@ -162,6 +163,16 @@ impl fmt::Debug for EdenFsInstance {
+     }
+ }
+ 
++/// Proof that `initFacebook` was performed (by `#[fbinit::main]`).
++fn fb_init() -> fbinit::FacebookInit {
++    #[cfg(fbcode_build)]
++    return expect_init();
++    // SAFETY: the open source fbinit has no global state to initialize; the
++    // token only exists for API compatibility.
++    #[cfg(not(fbcode_build))]
++    return unsafe { fbinit::assume_init() };
++}
++
+ impl EdenFsInstance {
+     /// Creates a new `EdenFsInstance` with the specified paths.
+     ///
+@@ -201,7 +212,7 @@ impl EdenFsInstance {
+             config_dir,
+             etc_eden_dir,
+             home_dir,
+-            client: Arc::new(EdenFsClient::new(expect_init(), use_case, socketfile)),
++            client: Arc::new(EdenFsClient::new(fb_init(), use_case, socketfile)),
+         }
+     }
+ 
+diff --git a/eden/fs/cli_rs/edenfs-client/src/use_case/use_case.rs b/eden/fs/cli_rs/edenfs-client/src/use_case/use_case.rs
+index a5d97b0..54ef95c 100644
+--- a/eden/fs/cli_rs/edenfs-client/src/use_case/use_case.rs
++++ b/eden/fs/cli_rs/edenfs-client/src/use_case/use_case.rs
+@@ -8,8 +8,11 @@
+ use std::path::Path;
+ use std::path::PathBuf;
+ 
++#[cfg(fbcode_build)]
+ use remote_loader::get_remote_configs;
++#[cfg(fbcode_build)]
+ use remote_loader::read_local_config;
++#[cfg(fbcode_build)]
+ use remote_loader::should_fetch_configs;
+ use strum::EnumString;
+ use strum::IntoStaticStr;
+@@ -117,6 +120,15 @@ impl UseCase {
+             })
+     }
+ 
++    // Use case configs are fetched from Meta's internal configuration service
++    // (via `cpe` and remote-loader's "fb" feature); open source builds use the
++    // defaults.
++    #[cfg(not(fbcode_build))]
++    fn get_use_case(&self) -> Option<ScmUseCase> {
++        None
++    }
++
++    #[cfg(fbcode_build)]
+     fn get_use_case(&self) -> Option<ScmUseCase> {
+         let is_pub = cpe::x2p::supports_vpnless();
+         let config_url = helpers::config_url(is_pub);
+@@ -169,6 +181,7 @@ impl UseCase {
+     }
+ 
+     // Creates and detaches a thread that will update the config if it is stale
++    #[cfg(fbcode_build)]
+     fn maybe_update_config<C>(
+         &self,
+         is_pub: bool,
+diff --git a/eden/fs/cli_rs/edenfs-commands/Cargo.toml b/eden/fs/cli_rs/edenfs-commands/Cargo.toml
+index 908b71f..749ccb0 100644
+--- a/eden/fs/cli_rs/edenfs-commands/Cargo.toml
++++ b/eden/fs/cli_rs/edenfs-commands/Cargo.toml
+@@ -47,6 +47,7 @@ tokio = { version = "1.53.1", features = ["full", "test-util", "tracing"] }
+ tokio-util = { version = "0.7.19", features = ["full"] }
+ toml = { version = "1.1.6", features = ["preserve_order"] }
+ tracing = { version = "0.1.41", features = ["attributes", "valuable"] }
++edenfs_telemetry = { package = "oss-edenfs-telemetry", version = "0.1.0", path = "../oss-edenfs-telemetry" }
+ 
+ [dev-dependencies]
+ tempfile = "3.27.0"
+diff --git a/eden/fs/cli_rs/edenfs-commands/src/debug/bench/cmd.rs b/eden/fs/cli_rs/edenfs-commands/src/debug/bench/cmd.rs
+index 43edf4f..eb5465a 100644
+--- a/eden/fs/cli_rs/edenfs-commands/src/debug/bench/cmd.rs
++++ b/eden/fs/cli_rs/edenfs-commands/src/debug/bench/cmd.rs
+@@ -275,8 +275,11 @@ impl crate::Subcommand for BenchCmd {
+                         random_data.chunk_size as f64 / types::BYTES_IN_KILOBYTE as f64,
+                         random_data.total_size() as f64 / types::BYTES_IN_GIGABYTE as f64
+                     );
+-                    println!("{}", dbio::bench_lmdb_write_mfmd(&test_dir, &random_data)?);
+-                    println!("{}", dbio::bench_lmdb_read_mfmd(&test_dir, &random_data)?);
++                    #[cfg(fbcode_build)]
++                    {
++                        println!("{}", dbio::bench_lmdb_write_mfmd(&test_dir, &random_data)?);
++                        println!("{}", dbio::bench_lmdb_read_mfmd(&test_dir, &random_data)?);
++                    }
+                     println!(
+                         "{}",
+                         dbio::bench_sqlite_write_mfmd(&test_dir, &random_data)?
+diff --git a/eden/fs/cli_rs/edenfs-commands/src/debug/bench/dbio.rs b/eden/fs/cli_rs/edenfs-commands/src/debug/bench/dbio.rs
+index adcba69..e569f49 100644
+--- a/eden/fs/cli_rs/edenfs-commands/src/debug/bench/dbio.rs
++++ b/eden/fs/cli_rs/edenfs-commands/src/debug/bench/dbio.rs
+@@ -11,6 +11,8 @@ use std::time::Instant;
+ 
+ use anyhow::Result;
+ use anyhow::anyhow;
++// The `lmdb` crate used here is Meta-internal (//common/rust/lmdb).
++#[cfg(fbcode_build)]
+ use lmdb::Txn;
+ 
+ use super::r#gen::RandomData;
+@@ -20,6 +22,7 @@ use super::types::Benchmark;
+ use super::types::BenchmarkType;
+ 
+ /// Runs the LMDB write benchmark and returns the benchmark results
++#[cfg(fbcode_build)]
+ pub fn bench_lmdb_write_mfmd(test_dir: &TestDir, random_data: &RandomData) -> Result<Benchmark> {
+     let mut agg_write_dur = std::time::Duration::new(0, 0);
+     let env = lmdb::Env::options()?
+@@ -77,6 +80,7 @@ pub fn bench_lmdb_write_mfmd(test_dir: &TestDir, random_data: &RandomData) -> Re
+ }
+ 
+ /// Runs the LMDB read benchmark and returns the benchmark results
++#[cfg(fbcode_build)]
+ pub fn bench_lmdb_read_mfmd(test_dir: &TestDir, random_data: &RandomData) -> Result<Benchmark> {
+     let mut agg_read_dur = std::time::Duration::new(0, 0);
+     let mut read_data = vec![0u8; random_data.chunk_size];
+diff --git a/eden/fs/cli_rs/edenfs-error/Cargo.toml b/eden/fs/cli_rs/edenfs-error/Cargo.toml
+index dd68a13..4d8aa86 100644
+--- a/eden/fs/cli_rs/edenfs-error/Cargo.toml
++++ b/eden/fs/cli_rs/edenfs-error/Cargo.toml
+@@ -13,3 +13,4 @@ sapling-thrift-types = { version = "0.1.0", path = "../../../scm/lib/thrift-type
+ thiserror = "2.0.21"
+ thrift_streaming_clients = { version = "0.1.0", path = "../../service/thrift_streaming/clients" }
+ tokio = { version = "1.53.1", features = ["full", "test-util", "tracing"] }
++thrift_thriftclients = { package = "oss-thriftclients", version = "0.1.0", path = "../oss-thriftclients" }
+diff --git a/eden/fs/cli_rs/oss-edenfs-telemetry/Cargo.toml b/eden/fs/cli_rs/oss-edenfs-telemetry/Cargo.toml
+new file mode 100644
+index 0000000..474d08c
+--- /dev/null
++++ b/eden/fs/cli_rs/oss-edenfs-telemetry/Cargo.toml
+@@ -0,0 +1,17 @@
++# Open source stand-in for the Meta-internal
++# `//eden/fs/rust/facebook/edenfs-telemetry` crate: same API surface as used
++# outside `#[cfg(fbcode_build)]`, but samples are simply dropped.
++
++[package]
++name = "oss-edenfs-telemetry"
++version = "0.1.0"
++edition = "2024"
++license = "GPLv2+"
++
++[lib]
++name = "edenfs_telemetry"
++path = "src/lib.rs"
++
++[dependencies]
++anyhow = "1.0.104"
++serde = { version = "1.0.229", features = ["derive", "rc"] }
+diff --git a/eden/fs/cli_rs/oss-edenfs-telemetry/src/lib.rs b/eden/fs/cli_rs/oss-edenfs-telemetry/src/lib.rs
+new file mode 100644
+index 0000000..8c8a4d2
+--- /dev/null
++++ b/eden/fs/cli_rs/oss-edenfs-telemetry/src/lib.rs
+@@ -0,0 +1,76 @@
++/*
++ * Copyright (c) Meta Platforms, Inc. and affiliates.
++ *
++ * This software may be used and distributed according to the terms of the
++ * GNU General Public License version 2.
++ */
++
++//! No-op telemetry for open source builds of the EdenFS CLI.
++
++/// A telemetry sample. Fields are accepted and discarded.
++#[derive(Debug, Default, Clone, serde::Serialize)]
++pub struct EdenSample;
++
++impl EdenSample {
++    pub fn new() -> Self {
++        Self
++    }
++
++    pub fn add_string(&mut self, _key: &str, _value: impl AsRef<str>) {}
++
++    pub fn add_int(&mut self, _key: &str, _value: impl Into<i64>) {}
++
++    pub fn add_bool(&mut self, _key: &str, _value: bool) {}
++
++    pub fn add_string_list(&mut self, _key: &str, _value: impl IntoIterator<Item = impl AsRef<str>>) {}
++
++    pub fn fail(&mut self, _error: &str) {}
++}
++
++/// Something samples can be logged to.
++pub trait SampleLogger {
++    fn log(&self, sample: EdenSample) -> anyhow::Result<()>;
++}
++
++/// The logger returned by [`create_logger`]; discards everything.
++#[derive(Debug, Default)]
++pub struct NullLogger;
++
++impl SampleLogger for NullLogger {
++    fn log(&self, _sample: EdenSample) -> anyhow::Result<()> {
++        Ok(())
++    }
++}
++
++pub fn create_logger(_dataset: String) -> NullLogger {
++    NullLogger
++}
++
++/// Logger that would batch samples before sending them; discards everything.
++#[derive(Debug, Default)]
++pub struct QueueingScubaLogger;
++
++impl QueueingScubaLogger {
++    pub fn new(_logger: NullLogger, _capacity: usize) -> Self {
++        Self
++    }
++}
++
++impl SampleLogger for QueueingScubaLogger {
++    fn log(&self, _sample: EdenSample) -> anyhow::Result<()> {
++        Ok(())
++    }
++}
++
++/// Maps system information keys to the column names of the EdenFS events
++/// dataset.
++pub fn edenfs_events_mapper(key: &str) -> Option<String> {
++    Some(key.to_string())
++}
++
++/// Adds host information to a sample (nothing in open source builds).
++pub fn collect_system_info(_sample: &mut EdenSample, _mapper: fn(&str) -> Option<String>) {}
++
++pub fn telemetry_disabled() -> bool {
++    true
++}
+diff --git a/eden/fs/cli_rs/oss-thrift-streaming-thriftclients/Cargo.toml b/eden/fs/cli_rs/oss-thrift-streaming-thriftclients/Cargo.toml
+new file mode 100644
+index 0000000..22012c1
+--- /dev/null
++++ b/eden/fs/cli_rs/oss-thrift-streaming-thriftclients/Cargo.toml
+@@ -0,0 +1,22 @@
++# Open source stand-in for Buck's
++# `//eden/fs/service:thrift-streaming-rust-thriftclients` (see
++# ../oss-thriftclients): connects the generated `thrift_streaming_clients`
++# client to EdenFS over its Unix domain socket.
++
++[package]
++name = "oss-thrift-streaming-thriftclients"
++version = "0.1.0"
++edition = "2024"
++license = "GPLv2+"
++
++[lib]
++name = "thrift_streaming_thriftclients"
++path = "src/lib.rs"
++
++[dependencies]
++anyhow = "1.0.104"
++fbthrift = { version = "0.0.1", git = "https://github.com/facebook/fbthrift.git", branch = "main" }
++fbthrift_socket = { version = "0.1.0", git = "https://github.com/facebookexperimental/rust-shed.git", branch = "main" }
++thrift_streaming_clients = { version = "0.1.0", path = "../../service/thrift_streaming/clients" }
++tokio = { version = "1.53.1", features = ["full", "test-util", "tracing"] }
++tracing = { version = "0.1.41", features = ["attributes", "valuable"] }
+diff --git a/eden/fs/cli_rs/oss-thrift-streaming-thriftclients/src/lib.rs b/eden/fs/cli_rs/oss-thrift-streaming-thriftclients/src/lib.rs
+new file mode 100644
+index 0000000..bbee8ae
+--- /dev/null
++++ b/eden/fs/cli_rs/oss-thrift-streaming-thriftclients/src/lib.rs
+@@ -0,0 +1,59 @@
++/*
++ * Copyright (c) Meta Platforms, Inc. and affiliates.
++ *
++ * This software may be used and distributed according to the terms of the
++ * GNU General Public License version 2.
++ */
++
++//! Provides `make_StreamingEdenServiceExt_thriftclient!`, the client
++//! constructor macro of the internal "thriftclients" flavour, implemented with
++//! `fbthrift_socket` over EdenFS's Unix domain socket.
++
++use std::path::Path;
++use std::sync::Arc;
++use std::time::Duration;
++
++use anyhow::Context;
++use anyhow::Result;
++use fbthrift::CompactProtocol;
++use fbthrift_socket::SocketTransport;
++use thrift_streaming_clients::StreamingEdenService;
++
++pub type Client = Arc<dyn StreamingEdenService + Send + Sync + 'static>;
++
++#[doc(hidden)]
++pub fn connect(path: &Path, conn_timeout_ms: u32, recv_timeout_ms: u32) -> Result<Client> {
++    let stream = std::os::unix::net::UnixStream::connect(path)
++        .with_context(|| format!("failed to connect to {}", path.display()))?;
++    if recv_timeout_ms > 0 {
++        stream.set_read_timeout(Some(Duration::from_millis(recv_timeout_ms.into())))?;
++    }
++    if conn_timeout_ms > 0 {
++        stream.set_write_timeout(Some(Duration::from_millis(conn_timeout_ms.into())))?;
++    }
++    stream.set_nonblocking(true)?;
++    let stream = tokio::net::UnixStream::from_std(stream)?;
++    let transport = SocketTransport::new_with_error_handler(stream, |error| {
++        tracing::error!(target: "transport_errors", thrift_transport_error = ?error)
++    });
++    Ok(<dyn StreamingEdenService>::new(CompactProtocol, transport))
++}
++
++#[macro_export]
++macro_rules! make_StreamingEdenServiceExt_thriftclient {
++    (
++        $fb:expr,
++        protocol = CompactProtocol,
++        from_path = $path:expr,
++        with_conn_timeout = $conn_timeout:expr,
++        with_recv_timeout = $recv_timeout:expr,
++        with_secure = false $(,)?
++    ) => {{
++        let _ = $fb;
++        $crate::connect(
++            ::std::path::Path::new($path),
++            $conn_timeout,
++            $recv_timeout,
++        )
++    }};
++}
+diff --git a/eden/fs/cli_rs/oss-thriftclients/Cargo.toml b/eden/fs/cli_rs/oss-thriftclients/Cargo.toml
+new file mode 100644
+index 0000000..d9f8d8f
+--- /dev/null
++++ b/eden/fs/cli_rs/oss-thriftclients/Cargo.toml
+@@ -0,0 +1,16 @@
++# Open source stand-in for Buck's `//eden/fs/service:thrift-rust-thriftclients`
++# (a Meta-internal flavour of generated Thrift clients that autocargo does not
++# export), built on top of the regular generated `thrift_clients` crate.
++
++[package]
++name = "oss-thriftclients"
++version = "0.1.0"
++edition = "2024"
++license = "GPLv2+"
++
++[lib]
++name = "thrift_thriftclients"
++path = "src/lib.rs"
++
++[dependencies]
++thrift_clients = { version = "0.1.0", path = "../../service/clients" }
+diff --git a/eden/fs/cli_rs/oss-thriftclients/src/lib.rs b/eden/fs/cli_rs/oss-thriftclients/src/lib.rs
+new file mode 100644
+index 0000000..8d7270c
+--- /dev/null
++++ b/eden/fs/cli_rs/oss-thriftclients/src/lib.rs
+@@ -0,0 +1,17 @@
++/*
++ * Copyright (c) Meta Platforms, Inc. and affiliates.
++ *
++ * This software may be used and distributed according to the terms of the
++ * GNU General Public License version 2.
++ */
++
++//! Re-exports the generated `eden.thrift` clients under the paths used by the
++//! internal "thriftclients" flavour (`thrift::errors::*`).
++
++pub use thrift_clients::*;
++
++pub mod thrift {
++    pub mod errors {
++        pub use thrift_clients::errors::eden_service::*;
++    }
++}
+diff --git a/eden/fs/config/CMakeLists.txt b/eden/fs/config/CMakeLists.txt
+index 3cf2bca..66f846a 100644
+--- a/eden/fs/config/CMakeLists.txt
++++ b/eden/fs/config/CMakeLists.txt
+@@ -6,7 +6,8 @@
+ add_fbthrift_library(
+   eden_config_thrift
+   eden_config.thrift
+-  LANGUAGES cpp py
++  # The CLI uses thrift-python bindings instead (see CMake/NixPythonDeps.cmake).
++  LANGUAGES cpp
+   PY_NAMESPACE facebook.eden.eden_config
+ )
+ 
+diff --git a/eden/fs/fuse/CMakeLists.txt b/eden/fs/fuse/CMakeLists.txt
+index 806fdab..fd58e29 100644
+--- a/eden/fs/fuse/CMakeLists.txt
++++ b/eden/fs/fuse/CMakeLists.txt
+@@ -20,3 +20,9 @@ target_link_libraries(
+     edencommon::edencommon_os
+     edencommon::edencommon_utils
+ )
++
++# IoUringFuseTransport.cpp
++if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
++  find_library(LIBURING_LIBRARY uring REQUIRED)
++  target_link_libraries(eden_fuse PUBLIC ${LIBURING_LIBRARY})
++endif()
+diff --git a/eden/fs/fuse/IoUringFuseTransport.cpp b/eden/fs/fuse/IoUringFuseTransport.cpp
+index 0356509..a382dbb 100644
+--- a/eden/fs/fuse/IoUringFuseTransport.cpp
++++ b/eden/fs/fuse/IoUringFuseTransport.cpp
+@@ -1128,7 +1128,7 @@ void IoUringFuseTransport::logCanceledCqe(
+         cqe.res,
+         cqe.flags,
+         userData,
+-        queue.eventFd,
++        queue.eventFd.load(),
+         isEventFd);
+     return;
+   }
+diff --git a/eden/fs/inodes/CMakeLists.txt b/eden/fs/inodes/CMakeLists.txt
+index bb4e4cc..e521a4e 100644
+--- a/eden/fs/inodes/CMakeLists.txt
++++ b/eden/fs/inodes/CMakeLists.txt
+@@ -23,16 +23,33 @@ list(
+   ${CMAKE_CURRENT_SOURCE_DIR}/InodeNumber.cpp
+   ${CMAKE_CURRENT_SOURCE_DIR}/InodeMetadata.cpp
+   ${CMAKE_CURRENT_SOURCE_DIR}/InodeTimestamps.cpp
++  ${CMAKE_CURRENT_SOURCE_DIR}/InodeCatalog.cpp
+ )
+ 
+ add_library(
+-  eden_inodes_inodenumber STATIC
+-    ${CMAKE_CURRENT_SOURCE_DIR}/InodeNumber.cpp
++  eden_inodes_inodenumber INTERFACE
+ )
+ 
++# The InodeCatalog base class, shared by eden_inodes and the catalog
++# implementations (which would otherwise form a dependency cycle).
++add_library(
++  eden_inode_catalog STATIC
++    ${CMAKE_CURRENT_SOURCE_DIR}/InodeCatalog.cpp
++)
+ target_link_libraries(
+-  eden_inodes_inodenumber
++  eden_inode_catalog
+   PUBLIC
++    eden_inodes_inodenumber
++    eden_model
++    eden_overlay_thrift_cpp
++    eden_utils
++    Folly::folly
++    edencommon::edencommon_utils
++)
++
++target_link_libraries(
++  eden_inodes_inodenumber
++  INTERFACE
+     Folly::folly
+ )
+ 
+@@ -61,8 +78,10 @@ target_link_libraries(
+     eden_telemetry
+     eden_utils
+     eden_sqlite_catalog
++    eden_inode_catalog
+     Folly::folly
+     edencommon::edencommon_utils
++    sigbus_memops
+   PRIVATE
+     eden_nfs_server
+ )
+@@ -79,6 +98,7 @@ else()
+     PUBLIC
+       eden_fuse
+       eden_fscatalog
++      eden_fscatalog_dev
+       eden_lmdb_catalog
+       eden_overlay_checker
+   )
+@@ -116,6 +136,7 @@ target_link_libraries(
+ 
+ add_subdirectory(overlay)
+ add_subdirectory(fscatalog)
++add_subdirectory(fscatalog_dev)
+ add_subdirectory(memcatalog)
+ add_subdirectory(sqlitecatalog)
+ add_subdirectory(lmdbcatalog)
+diff --git a/eden/fs/inodes/fscatalog/CMakeLists.txt b/eden/fs/inodes/fscatalog/CMakeLists.txt
+index cb6fc20..311c6d2 100644
+--- a/eden/fs/inodes/fscatalog/CMakeLists.txt
++++ b/eden/fs/inodes/fscatalog/CMakeLists.txt
+@@ -16,6 +16,7 @@ if (NOT WIN32)
+   target_link_libraries(
+     eden_fscatalog
+     PUBLIC
++      eden_inode_catalog
+       eden_overlay_thrift_cpp
+       eden_fuse
+       eden_utils
+diff --git a/eden/fs/inodes/fscatalog_dev/CMakeLists.txt b/eden/fs/inodes/fscatalog_dev/CMakeLists.txt
+new file mode 100644
+index 0000000..f5fe64b
+--- /dev/null
++++ b/eden/fs/inodes/fscatalog_dev/CMakeLists.txt
+@@ -0,0 +1,22 @@
++# Copyright (c) Meta Platforms, Inc. and affiliates.
++#
++# This software may be used and distributed according to the terms of the
++# GNU General Public License version 2.
++
++if (NOT WIN32)
++  add_library(
++    eden_fscatalog_dev STATIC
++      FsInodeCatalogDev.cpp
++      InodePathDev.cpp
++  )
++  target_link_libraries(
++    eden_fscatalog_dev
++    PUBLIC
++      eden_inode_catalog
++      eden_overlay_thrift_cpp
++      eden_service_thrift_cpp
++      eden_utils
++      Folly::folly
++      edencommon::edencommon_utils
++  )
++endif()
+diff --git a/eden/fs/inodes/lmdbcatalog/CMakeLists.txt b/eden/fs/inodes/lmdbcatalog/CMakeLists.txt
+index bd2a0e2..77747a1 100644
+--- a/eden/fs/inodes/lmdbcatalog/CMakeLists.txt
++++ b/eden/fs/inodes/lmdbcatalog/CMakeLists.txt
+@@ -15,6 +15,8 @@ target_link_libraries(
+   PUBLIC
+     eden_lmdb
+ 
++    eden_inode_catalog
++
+   PRIVATE
+     eden_config
+     eden_inodes_inodenumber
+diff --git a/eden/fs/inodes/memcatalog/CMakeLists.txt b/eden/fs/inodes/memcatalog/CMakeLists.txt
+index 637332d..d49d249 100644
+--- a/eden/fs/inodes/memcatalog/CMakeLists.txt
++++ b/eden/fs/inodes/memcatalog/CMakeLists.txt
+@@ -11,6 +11,7 @@ add_library(
+ target_link_libraries(
+   eden_mem_catalog
+   PUBLIC
++    eden_inode_catalog
+     eden_utils
+ )
+ 
+diff --git a/eden/fs/inodes/overlay/CMakeLists.txt b/eden/fs/inodes/overlay/CMakeLists.txt
+index bd11a1c..164399a 100644
+--- a/eden/fs/inodes/overlay/CMakeLists.txt
++++ b/eden/fs/inodes/overlay/CMakeLists.txt
+@@ -6,7 +6,8 @@
+ add_fbthrift_library(
+   eden_overlay_thrift
+   overlay.thrift
+-  LANGUAGES cpp py
++  # The CLI uses thrift-python bindings instead (see CMake/NixPythonDeps.cmake).
++  LANGUAGES cpp
+   PY_NAMESPACE facebook.eden.overlay
+ )
+ 
+diff --git a/eden/fs/inodes/sqlitecatalog/CMakeLists.txt b/eden/fs/inodes/sqlitecatalog/CMakeLists.txt
+index d72208e..1e0598f 100644
+--- a/eden/fs/inodes/sqlitecatalog/CMakeLists.txt
++++ b/eden/fs/inodes/sqlitecatalog/CMakeLists.txt
+@@ -19,6 +19,8 @@ target_link_libraries(
+   PUBLIC
+     eden_sqlite
+ 
++    eden_inode_catalog
++
+   PRIVATE
+     eden_config
+     eden_inodes_inodenumber
+diff --git a/eden/fs/privhelper/CMakeLists.txt b/eden/fs/privhelper/CMakeLists.txt
+index 0fac7eb..954f672 100644
+--- a/eden/fs/privhelper/CMakeLists.txt
++++ b/eden/fs/privhelper/CMakeLists.txt
+@@ -3,7 +3,7 @@
+ # This software may be used and distributed according to the terms of the
+ # GNU General Public License version 2.
+ 
+-file(GLOB PRIVHELPER_SRCS "*.cpp")
++file(GLOB PRIVHELPER_SRCS "*.cpp" "priority/*.cpp")
+ 
+ add_library(
+   eden_fuse_privhelper STATIC
+diff --git a/eden/fs/py/CMakeLists.txt b/eden/fs/py/CMakeLists.txt
+index 7b9a1c4..ee81d42 100644
+--- a/eden/fs/py/CMakeLists.txt
++++ b/eden/fs/py/CMakeLists.txt
+@@ -11,5 +11,5 @@ add_fb_python_library(
+     ${EDEN_PY_SRCS}
+     # Also include the generated eden/config.py file
+     "${CMAKE_CURRENT_BINARY_DIR}/eden/config.py=eden/config.py"
+-  DEPENDS eden_service_thrift_py
++  DEPENDS eden_service_thrift_python
+ )
+diff --git a/eden/fs/rust/backtrace_ffi/CMakeLists.txt b/eden/fs/rust/backtrace_ffi/CMakeLists.txt
+new file mode 100644
+index 0000000..75ab827
+--- /dev/null
++++ b/eden/fs/rust/backtrace_ffi/CMakeLists.txt
+@@ -0,0 +1,23 @@
++# Copyright (c) Meta Platforms, Inc. and affiliates.
++#
++# This software may be used and distributed according to the terms of the
++# GNU General Public License version 2.
++
++# Linked through the single Rust staticlib built in eden/fs/rust/oss-rust-ffi.
++add_library(rust_backtrace_ffi INTERFACE)
++target_link_libraries(rust_backtrace_ffi INTERFACE rust_edenfs_all)
++target_include_directories(rust_backtrace_ffi INTERFACE ${CMAKE_CURRENT_BINARY_DIR}/cxxbridge/)
++
++rust_cxx_bridge(
++  backtrace_ffi
++  "src/lib.rs"
++  LIBS
++  fmt::fmt
++  Folly::folly
++)
++
++target_link_libraries(
++  backtrace_ffi
++  PUBLIC
++  rust_backtrace_ffi
++)
+diff --git a/eden/fs/rust/edenfs-asserted-states/Cargo.toml b/eden/fs/rust/edenfs-asserted-states/Cargo.toml
+index c04d6e3..b002627 100644
+--- a/eden/fs/rust/edenfs-asserted-states/Cargo.toml
++++ b/eden/fs/rust/edenfs-asserted-states/Cargo.toml
+@@ -22,3 +22,4 @@ serde_json = { version = "1.0.151", features = ["alloc", "float_roundtrip", "raw
+ tokio = { version = "1.53.1", features = ["full", "test-util", "tracing"] }
+ tracing = { version = "0.1.41", features = ["attributes", "valuable"] }
+ whoami = "2.1.3"
++edenfs_telemetry = { package = "oss-edenfs-telemetry", version = "0.1.0", path = "../../cli_rs/oss-edenfs-telemetry" }
+diff --git a/eden/fs/rust/oss-rust-ffi/CMakeLists.txt b/eden/fs/rust/oss-rust-ffi/CMakeLists.txt
+new file mode 100644
+index 0000000..4f88bcb
+--- /dev/null
++++ b/eden/fs/rust/oss-rust-ffi/CMakeLists.txt
+@@ -0,0 +1,12 @@
++# Copyright (c) Meta Platforms, Inc. and affiliates.
++#
++# This software may be used and distributed according to the terms of the
++# GNU General Public License version 2.
++
++# The one Rust static library linked into EdenFS (see Cargo.toml). The
++# per-crate rust_* targets below forward to it.
++rust_static_library(
++  rust_edenfs_all
++  CRATE edenfs_rust_ffi
++  PACKAGE oss-rust-ffi
++)
+diff --git a/eden/fs/rust/oss-rust-ffi/Cargo.toml b/eden/fs/rust/oss-rust-ffi/Cargo.toml
+new file mode 100644
+index 0000000..e919aa9
+--- /dev/null
++++ b/eden/fs/rust/oss-rust-ffi/Cargo.toml
+@@ -0,0 +1,23 @@
++# Bundles all Rust code linked into the EdenFS daemon into one static library.
++#
++# Each Rust staticlib carries its own copy of the Rust standard library and of
++# the `cxx` runtime (whose symbols are not mangled), so linking several of
++# them into one binary fails with duplicate symbols. Buck links Rust libraries
++# differently; for CMake, build a single staticlib instead.
++
++[package]
++name = "oss-rust-ffi"
++version = "0.1.0"
++edition = "2024"
++license = "GPLv2+"
++
++[lib]
++name = "edenfs_rust_ffi"
++path = "src/lib.rs"
++crate-type = ["staticlib"]
++
++[dependencies]
++backtrace-ffi = { version = "0.1.0", path = "../backtrace_ffi" }
++redirect-ffi = { version = "0.1.0", path = "../redirect_ffi" }
++sapling-backingstore = { version = "0.1.0", path = "../../../scm/lib/backingstore" }
++sapling-edenfs_ffi = { version = "0.1.0", path = "../../../scm/lib/edenfs_ffi" }
+diff --git a/eden/fs/rust/oss-rust-ffi/src/lib.rs b/eden/fs/rust/oss-rust-ffi/src/lib.rs
+new file mode 100644
+index 0000000..b0b8772
+--- /dev/null
++++ b/eden/fs/rust/oss-rust-ffi/src/lib.rs
+@@ -0,0 +1,13 @@
++/*
++ * Copyright (c) Meta Platforms, Inc. and affiliates.
++ *
++ * This software may be used and distributed according to the terms of the
++ * GNU General Public License version 2.
++ */
++
++//! See Cargo.toml: links the cxx bridges of these crates into one staticlib.
++
++pub use backingstore;
++pub use backtrace_ffi;
++pub use edenfs_ffi;
++pub use redirect_ffi;
+diff --git a/eden/fs/rust/redirect_ffi/CMakeLists.txt b/eden/fs/rust/redirect_ffi/CMakeLists.txt
+new file mode 100644
+index 0000000..5e63cba
+--- /dev/null
++++ b/eden/fs/rust/redirect_ffi/CMakeLists.txt
+@@ -0,0 +1,31 @@
++# Copyright (c) Meta Platforms, Inc. and affiliates.
++#
++# This software may be used and distributed according to the terms of the
++# GNU General Public License version 2.
++
++# Linked through the single Rust staticlib built in eden/fs/rust/oss-rust-ffi.
++add_library(rust_redirect_ffi INTERFACE)
++target_link_libraries(rust_redirect_ffi INTERFACE rust_edenfs_all)
++target_include_directories(rust_redirect_ffi INTERFACE ${CMAKE_CURRENT_BINARY_DIR}/cxxbridge/)
++
++rust_cxx_bridge(
++  redirect_ffi
++  "src/lib.rs"
++  LIBS
++  eden_service_thrift_cpp
++  fmt::fmt
++  Folly::folly
++)
++
++target_sources(
++  redirect_ffi
++  PRIVATE
++  "${CMAKE_CURRENT_SOURCE_DIR}/src/ffi.cpp"
++)
++target_link_libraries(
++  redirect_ffi
++  PUBLIC
++  rust_redirect_ffi
++  eden_service_thrift_cpp
++  Folly::folly
++)
+diff --git a/eden/fs/rust/redirect_ffi/Cargo.toml b/eden/fs/rust/redirect_ffi/Cargo.toml
+index 28a7a2e..11027fa 100644
+--- a/eden/fs/rust/redirect_ffi/Cargo.toml
++++ b/eden/fs/rust/redirect_ffi/Cargo.toml
+@@ -13,3 +13,6 @@ cxx = "1.0.194"
+ cxxerror = { version = "0.1.0", path = "../../../scm/lib/edenfs_ffi/cxxerror" }
+ edenfs-client = { version = "0.1.0", path = "../../cli_rs/edenfs-client" }
+ tokio = { version = "1.53.1", features = ["full", "test-util", "tracing"] }
++
++[build-dependencies]
++cxx-build = "1.0.194"
+diff --git a/eden/fs/service/CMakeLists.txt b/eden/fs/service/CMakeLists.txt
+index 1c2a45e..337e962 100644
+--- a/eden/fs/service/CMakeLists.txt
++++ b/eden/fs/service/CMakeLists.txt
+@@ -6,7 +6,8 @@
+ add_fbthrift_library(
+   eden_service_thrift
+   eden.thrift
+-  LANGUAGES cpp py
++  # The CLI uses thrift-python bindings instead (see CMake/NixPythonDeps.cmake).
++  LANGUAGES cpp
+   PY_NAMESPACE facebook.eden
+   SERVICES
+     EdenService
+@@ -37,13 +38,13 @@ list(
+   ${CMAKE_CURRENT_SOURCE_DIR}/PrivHelperMain.cpp
+ )
+ add_library(
+-  eden_service_thrift_util STATIC
+-  PrettyPrinters.cpp
++  eden_service_thrift_util INTERFACE
+ )
+ target_link_libraries(
+   eden_service_thrift_util
+-  PUBLIC
++  INTERFACE
+     eden_model
++    eden_service_thrift_cpp
+     Folly::folly
+ )
+ 
+@@ -71,6 +72,7 @@ target_link_libraries(
+     eden_store
+     eden_takeover
+     eden_telemetry
++    redirect_ffi
+     ${EDEN_STORE_IMPLEMENTATIONS}
+     ${YARPL_LIBRARIES}
+     Folly::folly
+diff --git a/eden/fs/service/EdenServer.cpp b/eden/fs/service/EdenServer.cpp
+index 354c468..dd3e2ed 100644
+--- a/eden/fs/service/EdenServer.cpp
++++ b/eden/fs/service/EdenServer.cpp
+@@ -27,6 +27,7 @@
+ 
+ #include <fb303/ServiceData.h>
+ #include <fmt/core.h>
++#include <thrift/lib/cpp/util/EnumUtils.h>
+ #include <folly/Exception.h>
+ #include <folly/FileUtil.h>
+ #include <folly/Indestructible.h>
+@@ -1315,7 +1316,8 @@ Future<TakeoverData> EdenServer::stopMountsForTakeover(
+               EdenErrorInfo::takeover(ex)
+                   .withMountPoint(std::string(mountPath.view()))
+                   .withMountStatus(
+-                      fmt::format("{}", info.edenMount->getState()))
++                      std::string(apache::thrift::util::enumNameSafe(
++                          info.edenMount->getState())))
+                   .withErrorType("takeover_shutdown_failed"));
+         });
+         if (outcome != ErrorLogOutcome::RateLimited) {
+diff --git a/eden/fs/store/CMakeLists.txt b/eden/fs/store/CMakeLists.txt
+index 68f3e29..d41e758 100644
+--- a/eden/fs/store/CMakeLists.txt
++++ b/eden/fs/store/CMakeLists.txt
+@@ -42,7 +42,7 @@ target_link_libraries(
+     edencommon::edencommon_utils
+ )
+ 
+-add_subdirectory(hg)
++add_subdirectory(sl)
+ add_subdirectory(filter)
+ 
+ if("${EDEN_HAVE_GIT}")
+diff --git a/eden/fs/store/ObjectStore.cpp b/eden/fs/store/ObjectStore.cpp
+index 558350f..9d9a61f 100644
+--- a/eden/fs/store/ObjectStore.cpp
++++ b/eden/fs/store/ObjectStore.cpp
+@@ -490,7 +490,9 @@ folly::coro::now_task<std::shared_ptr<const Blob>> ObjectStore::co_getBlob(
+   updateProcessFetch(*fetchContext);
+   fetchContext->didFetch(
+       ObjectFetchContext::Blob, id, result.origin, result.blob->getSize());
+-  co_return std::move(result.blob);
++  // Unwrap explicitly: GCC finds the not_null -> shared_ptr conversion
++  // ambiguous.
++  co_return std::move(result.blob).unwrap();
+ }
+ 
+ folly::SemiFuture<BackingStore::GetBlobResult> ObjectStore::getBlobImpl(
+diff --git a/eden/fs/telemetry/CMakeLists.txt b/eden/fs/telemetry/CMakeLists.txt
+index e9c3022..d712ded 100644
+--- a/eden/fs/telemetry/CMakeLists.txt
++++ b/eden/fs/telemetry/CMakeLists.txt
+@@ -19,4 +19,11 @@ target_link_libraries(
+     edencommon::edencommon_telemetry
+     fb303::fb303
+     Folly::folly
++    backtrace_ffi
+ )
++
++# ThrowTraceCapture.cpp hooks every C++ throw (see exported_linker_flags in
++# the BUCK file).
++if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
++  target_link_options(eden_telemetry INTERFACE "-Wl,--wrap=__cxa_throw")
++endif()
+diff --git a/eden/fs/telemetry/StackTraceUploader.cpp b/eden/fs/telemetry/StackTraceUploader.cpp
+index 7be9544..50a43bb 100644
+--- a/eden/fs/telemetry/StackTraceUploader.cpp
++++ b/eden/fs/telemetry/StackTraceUploader.cpp
+@@ -7,26 +7,11 @@
+ 
+ #include "eden/fs/telemetry/StackTraceUploader.h"
+ 
+-#include <fmt/core.h>
++#include <fmt/format.h>
+ #include <folly/Random.h>
+-#include <folly/executors/CPUThreadPoolExecutor.h>
+-#include <folly/logging/xlog.h>
+-
+-#include "eden/fs/rust/manifold_ffi/src/lib.rs.h"
+ 
+ namespace facebook::eden {
+ 
+-namespace {
+-constexpr size_t kUploadPoolSize = 4;
+-
+-constexpr uint32_t kMaxQueuedUploads = 10;
+-
+-folly::CPUThreadPoolExecutor& getUploadPool() {
+-  static folly::CPUThreadPoolExecutor pool(kUploadPoolSize);
+-  return pool;
+-}
+-} // namespace
+-
+ std::string StackTraceUploader::generateKey() {
+   auto hi = folly::Random::rand64();
+   auto lo = folly::Random::rand64();
+@@ -38,38 +23,9 @@ std::string StackTraceUploader::keyToUrl(const std::string& key) {
+ }
+ 
+ std::string StackTraceUploader::uploadToManifold(std::string content) {
+-  auto key = generateKey();
+-  auto url = keyToUrl(key);
+-
+-  // Drop if the upload queue is at capacity.
+-  auto& pool = getUploadPool();
+-  if (pool.getPendingTaskCount() >= kMaxQueuedUploads) {
+-    XLOG(DBG4) << "Dropping Manifold upload: queue full";
+-    return "Upload skipped: queue full";
+-  }
+-
+-  pool.add([key = std::move(key), content = std::move(content)]() {
+-    try {
+-      manifold_write(
+-          kBucket,
+-          kApiKey,
+-          key,
+-          rust::Slice<const uint8_t>(
+-              reinterpret_cast<const uint8_t*>(content.data()), content.size()),
+-          kUploadTimeoutSeconds * 1000,
+-          kExpirationSeconds,
+-          kClientIdentity);
+-    } catch (const std::exception& ex) {
+-      XLOGF(
+-          WARN,
+-          "Failed to upload stack trace to Manifold key={} bucket={}: {}",
+-          key,
+-          kBucket,
+-          ex.what());
+-    }
+-  });
+-
+-  return url;
++  // Manifold (and the manifold-ffi crate) is Meta-internal. Open source
++  // builds keep the stack trace inline instead of uploading it.
++  return content;
+ }
+ 
+ } // namespace facebook::eden
+diff --git a/eden/scm/lib/CMakeLists.txt b/eden/scm/lib/CMakeLists.txt
+index 8027482..6f34824 100644
+--- a/eden/scm/lib/CMakeLists.txt
++++ b/eden/scm/lib/CMakeLists.txt
+@@ -5,3 +5,4 @@
+ 
+ add_subdirectory(edenfs_ffi)
+ add_subdirectory(backingstore)
++add_subdirectory(util/sigbus-memops)
+diff --git a/eden/scm/lib/backingstore/CMakeLists.txt b/eden/scm/lib/backingstore/CMakeLists.txt
+index 62bde26..0751653 100644
+--- a/eden/scm/lib/backingstore/CMakeLists.txt
++++ b/eden/scm/lib/backingstore/CMakeLists.txt
+@@ -3,21 +3,10 @@
+ # This software may be used and distributed according to the terms of the
+ # GNU General Public License version 2.
+ 
+-if (IS_FB_BUILD)
+-  rust_static_library(
+-    rust_backingstore
+-    CRATE backingstore
+-    USE_CXX_INCLUDE
+-    FEATURES fb)
+-else()
+-  rust_static_library(rust_backingstore CRATE backingstore USE_CXX_INCLUDE)
+-endif()
+-
+-install_rust_static_library(
+-  rust_backingstore
+-  EXPORT mercurial
+-  INSTALL_DIR lib
+-)
++# Linked through the single Rust staticlib built in eden/fs/rust/oss-rust-ffi.
++add_library(rust_backingstore INTERFACE)
++target_link_libraries(rust_backingstore INTERFACE rust_edenfs_all)
++target_include_directories(rust_backingstore INTERFACE ${CMAKE_CURRENT_BINARY_DIR}/cxxbridge/)
+ 
+ rust_cxx_bridge(
+   backingstore
+diff --git a/eden/scm/lib/backingstore/Cargo.toml b/eden/scm/lib/backingstore/Cargo.toml
+index 78cd9d4..8e8d56a 100644
+--- a/eden/scm/lib/backingstore/Cargo.toml
++++ b/eden/scm/lib/backingstore/Cargo.toml
+@@ -11,7 +11,7 @@ license = "MIT"
+ 
+ [lib]
+ name = "backingstore"
+-crate-type = ["lib", "staticlib"]
++crate-type = ["lib"]
+ 
+ [dependencies]
+ anyhow = "1.0.104"
+@@ -35,7 +35,7 @@ sapling-manifest-tree = { version = "0.1.0", path = "../manifest-tree" }
+ sapling-metrics = { version = "0.1.0", path = "../metrics" }
+ sapling-pathmatcher = { version = "0.1.0", path = "../pathmatcher" }
+ sapling-progress-model = { version = "0.1.0", path = "../progress/model" }
+-sapling-repo = { version = "0.1.0", path = "../repo" }
++sapling-repo = { version = "0.1.0", path = "../repo", features = ["wdir"] }
+ sapling-revisionstore = { version = "0.1.0", path = "../revisionstore" }
+ sapling-storemodel = { version = "0.1.0", path = "../storemodel" }
+ sapling-testutil = { version = "0.1.0", path = "../util/testutil" }
+@@ -45,6 +45,7 @@ serde_json = { version = "1.0.151", features = ["alloc", "float_roundtrip", "raw
+ smallvec = { version = "1.16.2", default-features = false }
+ tracing = { version = "0.1.41", features = ["attributes", "valuable"] }
+ tracing-subscriber = { version = "0.3.23", features = ["chrono", "env-filter", "json", "local-time", "parking_lot", "registry"] }
++edenfs_telemetry = { package = "oss-edenfs-telemetry", version = "0.1.0", path = "../../../fs/cli_rs/oss-edenfs-telemetry" }
+ 
+ [dev-dependencies]
+ http = "1.5.0"
+diff --git a/eden/scm/lib/backingstore/SaplingBackingStoreError.h b/eden/scm/lib/backingstore/SaplingBackingStoreError.h
+new file mode 100644
+index 0000000..c8f0596
+--- /dev/null
++++ b/eden/scm/lib/backingstore/SaplingBackingStoreError.h
+@@ -0,0 +1,11 @@
++/*
++ * Copyright (c) Meta Platforms, Inc. and affiliates.
++ *
++ * This software may be used and distributed according to the terms of the
++ * GNU General Public License version 2.
++ */
++
++// Buck exports include/SaplingBackingStoreError.h under this path.
++#pragma once
++
++#include "eden/scm/lib/backingstore/include/SaplingBackingStoreError.h"
+diff --git a/eden/scm/lib/backingstore/include/ffi.h b/eden/scm/lib/backingstore/include/ffi.h
+index 72194f8..2bf7170 100644
+--- a/eden/scm/lib/backingstore/include/ffi.h
++++ b/eden/scm/lib/backingstore/include/ffi.h
+@@ -10,6 +10,7 @@
+ #include <folly/Range.h>
+ #include <folly/container/FBVector.h>
+ #include <folly/futures/Future.h>
++#include <folly/io/IOBuf.h>
+ #include <rust/cxx.h>
+ #include <cstdint>
+ #include <memory>
+@@ -117,6 +118,10 @@ void sapling_backingstore_get_file_aux_batch_handler(
+     std::unique_ptr<SaplingBackingStoreError> error,
+     std::shared_ptr<FileAuxData> aux);
+ 
++/** Copy blob contents coming from Rust into a new IOBuf. */
++std::unique_ptr<folly::IOBuf> sapling_backingstore_iobuf_copy_buffer(
++    rust::Slice<const uint8_t> data);
++
+ /** Forward a serialized EdenSample to EdenFS's process-wide XplatLogger. */
+ void sapling_backingstore_log_edenfs_event(
+     const facebook::eden::EdenFsEventsLogger& logger,
+diff --git a/eden/scm/lib/backingstore/src/ffi.cpp b/eden/scm/lib/backingstore/src/ffi.cpp
+index 02fb8ab..d866dad 100644
+--- a/eden/scm/lib/backingstore/src/ffi.cpp
++++ b/eden/scm/lib/backingstore/src/ffi.cpp
+@@ -321,4 +321,9 @@ std::unique_ptr<TreeBuilder> new_builder(
+   });
+ }
+ 
++std::unique_ptr<folly::IOBuf> sapling_backingstore_iobuf_copy_buffer(
++    rust::Slice<const uint8_t> data) {
++  return folly::IOBuf::copyBuffer(data.data(), data.size());
++}
++
+ } // namespace sapling
+diff --git a/eden/scm/lib/backingstore/src/ffi.rs b/eden/scm/lib/backingstore/src/ffi.rs
+index 6bbecd4..89884cf 100644
+--- a/eden/scm/lib/backingstore/src/ffi.rs
++++ b/eden/scm/lib/backingstore/src/ffi.rs
+@@ -165,8 +165,13 @@ pub(crate) mod ffi {
+         #[namespace = "facebook::eden"]
+         type EdenFsEventsLogger;
+ 
++        // Open source builds have no Rust bindings for folly::IOBuf (the
++        // Meta-internal `iobuf` crate), so it is an opaque type here and blobs
++        // are copied into a new IOBuf on the C++ side.
+         #[namespace = "folly"]
+-        type IOBuf = iobuf::IOBuf;
++        type IOBuf;
++
++        fn sapling_backingstore_iobuf_copy_buffer(data: &[u8]) -> UniquePtr<IOBuf>;
+ 
+         type GetTreeBatchResolver;
+         type GetTreeAuxBatchResolver;
+@@ -870,7 +875,7 @@ pub fn sapling_backingstore_get_blob(
+         FetchContext::new_with_mode_and_cause(FetchMode::from(fetch_mode), FetchCause::EdenUnknown),
+         node,
+     );
+-    let (data, error) = resolve_result!(res, transform_some: |blob: blob::Blob| blob.into_iobuf().into(), replace_none: UniquePtr::null());
++    let (data, error) = resolve_result!(res, transform_some: |blob: blob::Blob| ffi::sapling_backingstore_iobuf_copy_buffer(&blob.into_bytes()), replace_none: UniquePtr::null());
+     ffi::GetBlobResult { data, error }
+ }
+ 
+@@ -909,7 +914,7 @@ pub fn sapling_backingstore_get_blob_batch(
+                         )
+                     }
+                 }
+-                Some(blob) => (UniquePtr::null(), blob.into_iobuf().into()),
++                Some(blob) => (UniquePtr::null(), ffi::sapling_backingstore_iobuf_copy_buffer(&blob.into_bytes())),
+             },
+             Err(error) => (into_backingstore_err(error), UniquePtr::null()),
+         };
+diff --git a/eden/scm/lib/edenfs_ffi/CMakeLists.txt b/eden/scm/lib/edenfs_ffi/CMakeLists.txt
+index 60cbcd6..7b5213b 100644
+--- a/eden/scm/lib/edenfs_ffi/CMakeLists.txt
++++ b/eden/scm/lib/edenfs_ffi/CMakeLists.txt
+@@ -5,12 +5,10 @@
+ 
+ # Due to some tools changing '-' to '_' when building,
+ # this library/crate is named using an '_' so that it can link successfully.
+-rust_static_library(rust_edenfs_ffi CRATE edenfs_ffi USE_CXX_INCLUDE)
+-
+-install_rust_static_library(
+-  rust_edenfs_ffi
+-  INSTALL_DIR lib
+-)
++# Linked through the single Rust staticlib built in eden/fs/rust/oss-rust-ffi.
++add_library(rust_edenfs_ffi INTERFACE)
++target_link_libraries(rust_edenfs_ffi INTERFACE rust_edenfs_all)
++target_include_directories(rust_edenfs_ffi INTERFACE ${CMAKE_CURRENT_BINARY_DIR}/cxxbridge/)
+ 
+ rust_cxx_bridge(
+   edenfs_ffi
+diff --git a/eden/scm/lib/edenfs_ffi/Cargo.toml b/eden/scm/lib/edenfs_ffi/Cargo.toml
+index 80f1361..fbd6ffd 100644
+--- a/eden/scm/lib/edenfs_ffi/Cargo.toml
++++ b/eden/scm/lib/edenfs_ffi/Cargo.toml
+@@ -11,7 +11,7 @@ license = "MIT"
+ 
+ [lib]
+ name = "edenfs_ffi"
+-crate-type = ["lib", "staticlib"]
++crate-type = ["lib"]
+ 
+ [dependencies]
+ anyhow = "1.0.104"
+diff --git a/eden/scm/lib/util/sigbus-memops/CMakeLists.txt b/eden/scm/lib/util/sigbus-memops/CMakeLists.txt
+new file mode 100644
+index 0000000..ee3d200
+--- /dev/null
++++ b/eden/scm/lib/util/sigbus-memops/CMakeLists.txt
+@@ -0,0 +1,17 @@
++# Copyright (c) Meta Platforms, Inc. and affiliates.
++#
++# This software may be used and distributed according to the terms of the
++# GNU General Public License version 2.
++
++# C library also used by edencommon's MappedDiskVector.h.
++add_library(
++  sigbus_memops STATIC
++  native/sigbus_memops.c
++  native/sigbus_memops_inline.c
++)
++target_include_directories(
++  sigbus_memops
++  PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
++  PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/native
++)
++set_target_properties(sigbus_memops PROPERTIES POSITION_INDEPENDENT_CODE ON)

@@ -1,0 +1,48 @@
+
+# Appended to eden/fs/Cargo.toml by nix/edenfs (paths are relative to it).
+#
+# Upstream's Cargo manifests pull the fbthrift Rust runtime, fb303, watchman
+# and rust-shed crates from their GitHub `main` branches. This repository
+# already carries copies of those crates that are in sync with the checkout
+# (the same ones getdeps maps in via crate.pathmap), so point Cargo at them
+# instead. Only the few rust-shed crates that are not mirrored here are
+# fetched from git (and pinned by the Cargo.lock next to this file).
+
+[patch."https://github.com/facebook/fbthrift.git"]
+fbthrift = { path = "../../thrift/lib/rust" }
+cpp = { path = "../../thrift/lib/rust/annotation/cpp" }
+cpp_clients = { path = "../../thrift/lib/rust/annotation/cpp/clients" }
+cpp_mocks = { path = "../../thrift/lib/rust/annotation/cpp/mocks" }
+cpp_services = { path = "../../thrift/lib/rust/annotation/cpp/services" }
+rust = { path = "../../thrift/lib/rust/annotation/rust" }
+rust_clients = { path = "../../thrift/lib/rust/annotation/rust/clients" }
+rust_mocks = { path = "../../thrift/lib/rust/annotation/rust/mocks" }
+rust_services = { path = "../../thrift/lib/rust/annotation/rust/services" }
+scope = { path = "../../thrift/lib/rust/annotation/scope" }
+thrift = { path = "../../thrift/lib/rust/annotation/thrift" }
+thrift_clients = { path = "../../thrift/lib/rust/annotation/thrift/clients" }
+thrift_mocks = { path = "../../thrift/lib/rust/annotation/thrift/mocks" }
+thrift_services = { path = "../../thrift/lib/rust/annotation/thrift/services" }
+
+[patch."https://github.com/facebook/fb303.git"]
+fb303_core = { path = "../../fb303/thrift/rust" }
+fb303_core_clients = { path = "../../fb303/thrift/rust/clients" }
+fb303_core_mocks = { path = "../../fb303/thrift/rust/mocks" }
+fb303_core_services = { path = "../../fb303/thrift/rust/services" }
+
+[patch."https://github.com/facebook/watchman.git"]
+watchman_client = { path = "../../watchman/rust/watchman_client" }
+serde_bser = { path = "../../watchman/rust/serde_bser" }
+
+[patch."https://github.com/facebookexperimental/rust-shed.git"]
+codegen_includer_proc_macro = { path = "../../common/rust/shed/codegen_includer_proc_macro" }
+fbinit = { path = "../../common/rust/shed/fbinit" }
+fbinit-tokio = { path = "../../common/rust/shed/fbinit/fbinit-tokio" }
+fbinit_macros = { path = "../../common/rust/shed/fbinit/fbinit_macros" }
+futures_ext = { path = "../../common/rust/shed/futures_ext" }
+futures_stats = { path = "../../common/rust/shed/futures_stats" }
+hostcaps = { path = "../../common/rust/shed/hostcaps" }
+hostname = { path = "../../common/rust/shed/hostname" }
+quickcheck_arbitrary_derive = { path = "../../common/rust/shed/quickcheck_arbitrary_derive" }
+shared_error = { path = "../../common/rust/shed/shared_error" }
+thrift_compiler = { path = "../../common/rust/shed/thrift_compiler" }

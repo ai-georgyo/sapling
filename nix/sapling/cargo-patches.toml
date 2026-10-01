@@ -1,0 +1,32 @@
+
+# Added by nix/sapling: resolve the Meta git dependencies (declared with
+# `branch = "main"`) to the in-sync copies vendored in this repository, the
+# same way getdeps does. Paths are relative to eden/scm.
+[patch."https://github.com/facebook/fbthrift.git"]
+fbthrift = { path = "../../thrift/lib/rust" }
+cpp = { path = "../../thrift/lib/rust/annotation/cpp" }
+cpp_clients = { path = "../../thrift/lib/rust/annotation/cpp/clients" }
+rust = { path = "../../thrift/lib/rust/annotation/rust" }
+rust_clients = { path = "../../thrift/lib/rust/annotation/rust/clients" }
+scope = { path = "../../thrift/lib/rust/annotation/scope" }
+scope_clients = { path = "../../thrift/lib/rust/annotation/scope/clients" }
+thrift = { path = "../../thrift/lib/rust/annotation/thrift" }
+thrift_clients = { path = "../../thrift/lib/rust/annotation/thrift/clients" }
+
+[patch."https://github.com/facebook/fb303.git"]
+fb303_core = { path = "../../fb303/thrift/rust" }
+fb303_core_clients = { path = "../../fb303/thrift/rust/clients" }
+
+[patch."https://github.com/facebook/watchman.git"]
+serde_bser = { path = "../../watchman/rust/serde_bser" }
+watchman_client = { path = "../../watchman/rust/watchman_client" }
+
+[patch."https://github.com/facebookexperimental/rust-shed.git"]
+cloned = { path = "../../common/rust/shed/cloned" }
+codegen_includer_proc_macro = { path = "../../common/rust/shed/codegen_includer_proc_macro" }
+fbinit = { path = "../../common/rust/shed/fbinit" }
+hostcaps = { path = "../../common/rust/shed/hostcaps" }
+hostname = { path = "../../common/rust/shed/hostname" }
+quickcheck_arbitrary_derive = { path = "../../common/rust/shed/quickcheck_arbitrary_derive" }
+thrift_compiler = { path = "../../common/rust/shed/thrift_compiler" }
+tokio-uds-compat = { path = "../../common/rust/shed/tokio-uds-compat" }

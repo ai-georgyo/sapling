@@ -1,0 +1,45 @@
+# Appended to eden/mononoke/Cargo.toml by the Nix build.
+#
+# The workspace depends on fbthrift and rust-shed crates via `git = ..., branch
+# = "main"`. This repository ships in-sync copies of the fbthrift Rust runtime
+# (thrift/lib/rust), the Thrift annotation crates and part of rust-shed
+# (common/rust/shed), exported from the same commit as Mononoke itself, so use
+# those (this mirrors what getdeps does with its `[crate.pathmap]` entries).
+# rust-shed crates that are not vendored here come from git, pinned by
+# nix/mononoke/Cargo.lock to build/deps/github_hashes/.../rust-shed-rev.txt.
+[patch."https://github.com/facebook/fbthrift.git"]
+cpp = { path = "../../thrift/lib/rust/annotation/cpp" }
+fbthrift = { path = "../../thrift/lib/rust" }
+hack = { path = "../../thrift/lib/rust/annotation/hack" }
+hack_clients = { path = "../../thrift/lib/rust/annotation/hack/clients" }
+hack_mocks = { path = "../../thrift/lib/rust/annotation/hack/mocks" }
+hack_services = { path = "../../thrift/lib/rust/annotation/hack/services" }
+rust = { path = "../../thrift/lib/rust/annotation/rust" }
+rust_clients = { path = "../../thrift/lib/rust/annotation/rust/clients" }
+rust_mocks = { path = "../../thrift/lib/rust/annotation/rust/mocks" }
+rust_services = { path = "../../thrift/lib/rust/annotation/rust/services" }
+scope = { path = "../../thrift/lib/rust/annotation/scope" }
+scope_clients = { path = "../../thrift/lib/rust/annotation/scope/clients" }
+scope_mocks = { path = "../../thrift/lib/rust/annotation/scope/mocks" }
+scope_services = { path = "../../thrift/lib/rust/annotation/scope/services" }
+thrift = { path = "../../thrift/lib/rust/annotation/thrift" }
+thrift_clients = { path = "../../thrift/lib/rust/annotation/thrift/clients" }
+thrift_mocks = { path = "../../thrift/lib/rust/annotation/thrift/mocks" }
+thrift_services = { path = "../../thrift/lib/rust/annotation/thrift/services" }
+
+[patch."https://github.com/facebookexperimental/rust-shed.git"]
+ascii_ext = { path = "../../common/rust/shed/ascii_ext" }
+cloned = { path = "../../common/rust/shed/cloned" }
+codegen_includer_proc_macro = { path = "../../common/rust/shed/codegen_includer_proc_macro" }
+fbinit = { path = "../../common/rust/shed/fbinit" }
+fbinit-tokio = { path = "../../common/rust/shed/fbinit/fbinit-tokio" }
+fbinit_macros = { path = "../../common/rust/shed/fbinit/fbinit_macros" }
+futures_ext = { path = "../../common/rust/shed/futures_ext" }
+futures_stats = { path = "../../common/rust/shed/futures_stats" }
+hostname = { path = "../../common/rust/shed/hostname" }
+perthread = { path = "../../common/rust/shed/perthread" }
+quickcheck_arbitrary_derive = { path = "../../common/rust/shed/quickcheck_arbitrary_derive" }
+shared_error = { path = "../../common/rust/shed/shared_error" }
+stats = { path = "../../common/rust/shed/stats" }
+stats_traits = { path = "../../common/rust/shed/stats/traits" }
+thrift_compiler = { path = "../../common/rust/shed/thrift_compiler" }
